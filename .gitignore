@@ -1,0 +1,26 @@
+# Build outputs
+bin/
+obj/
+dist/
+
+# Dependencies
+node_modules/
+
+# IDE
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+packages/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*

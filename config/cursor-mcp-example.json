@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "revit-ai-connector": {
+      "command": "node",
+      "args": ["C:/Users/USER/RevitAIConnector/McpServer/dist/index.js"],
+      "env": {}
+    }
+  }
+}

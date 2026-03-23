@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>RevitAIConnector</RootNamespace>
+    <AssemblyName>RevitAIConnector</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <PlatformTarget>x64</PlatformTarget>
+    <Configurations>Debug;Release</Configurations>
+    <!-- Suppress Revit API obsolete warnings for ElementId.IntegerValue etc. -->
+    <NoWarn>CS0618</NoWarn>
+  </PropertyGroup>
+
+  <!-- Revit API References — adjust path for your Revit version -->
+  <PropertyGroup>
+    <RevitVersion>2025</RevitVersion>
+    <RevitApiPath>C:\Program Files\Autodesk\Revit $(RevitVersion)</RevitApiPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="RevitAPI">
+      <HintPath>$(RevitApiPath)\RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(RevitApiPath)\RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- Revit 2025 ships its own Newtonsoft.Json; set Private=false if conflicts arise -->
+  </ItemGroup>
+
+  <!-- Copy addin manifest to output -->
+  <ItemGroup>
+    <None Include="RevitAIConnector.addin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
