@@ -12,6 +12,8 @@ namespace RevitAIConnector
 
         public static int Port { get; } = 52010;
         public static string BaseUrl => $"http://localhost:{Port}/";
+        public const int ToolCount = 72;
+        public const string Version = "2.0.0";
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -23,31 +25,37 @@ namespace RevitAIConnector
                 _httpServer = new EmbeddedHttpServer(Port, _handler, _externalEvent);
                 _httpServer.Start();
 
-                TaskDialog.Show("Revit AI Connector",
-                    $"AI Connector started on port {Port}.\n" +
-                    "Cursor MCP server can now connect.");
+                ShowStartupWindow(Port, ToolCount);
 
                 return Result.Succeeded;
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("Revit AI Connector - Error",
-                    $"Failed to start: {ex.Message}");
+                ShowStartupWindow(Port, 0, true, ex.Message);
                 return Result.Failed;
             }
         }
 
         public Result OnShutdown(UIControlledApplication application)
         {
+            try { _httpServer?.Stop(); } catch { }
+            return Result.Succeeded;
+        }
+
+        private static void ShowStartupWindow(int port, int toolCount, bool isError = false, string errorMsg = null)
+        {
             try
             {
-                _httpServer?.Stop();
+                var win = new StartupWindow(port, toolCount, isError, errorMsg);
+                win.ShowDialog();
             }
             catch
             {
-                // Suppress shutdown errors
+                TaskDialog.Show("Revit AI Connector",
+                    isError
+                        ? $"Failed to start: {errorMsg}"
+                        : $"AI Connector started on port {port}.\n{toolCount} MCP tools ready.");
             }
-            return Result.Succeeded;
         }
     }
 }
