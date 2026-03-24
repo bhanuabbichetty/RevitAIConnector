@@ -178,6 +178,28 @@ namespace RevitAIConnector
                 case "/api/dimension-types":
                     return CreationService.GetDimensionTypes(doc);
 
+                // ── Rebar Tools ──────────────────────────────────────────
+                case "/api/rebar-bar-types":
+                    return RebarService.GetRebarBarTypes(doc);
+                case "/api/rebar-shapes":
+                    return RebarService.GetRebarShapes(doc);
+                case "/api/rebar-hook-types":
+                    return RebarService.GetRebarHookTypes(doc);
+                case "/api/rebar-in-host":
+                    return RebarService.GetRebarInHost(doc, body);
+                case "/api/host-rebar-info":
+                    return RebarService.GetHostRebarInfo(doc, body);
+                case "/api/rebar-cover-types":
+                    return RebarService.GetRebarCoverTypes(doc);
+                case "/api/place-rebar":
+                    return RebarService.PlaceRebarFromCurves(doc, body);
+                case "/api/place-stirrups":
+                    return RebarService.PlaceStirrups(doc, body);
+                case "/api/set-rebar-layout":
+                    return RebarService.SetRebarLayout(doc, body);
+                case "/api/set-rebar-cover":
+                    return RebarService.SetRebarCover(doc, body);
+
                 // ── Grid Extent Tools ─────────────────────────────────────
                 case "/api/grid-extents":
                     return GridService.GetGridExtents(doc, body);

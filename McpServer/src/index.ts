@@ -514,6 +514,152 @@ server.tool(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//  REBAR / REINFORCEMENT TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool(
+  "get_rebar_bar_types",
+  "Get all rebar bar types (sizes) in the model with diameter in mm and ft.",
+  {},
+  async () => t(await callRevit("/api/rebar-bar-types"))
+);
+
+server.tool(
+  "get_rebar_shapes",
+  "Get all rebar shapes (straight, stirrup, L-bar, U-bar, etc.) available in the model.",
+  {},
+  async () => t(await callRevit("/api/rebar-shapes"))
+);
+
+server.tool(
+  "get_rebar_hook_types",
+  "Get all rebar hook types available (90-degree, 135-degree, 180-degree hooks).",
+  {},
+  async () => t(await callRevit("/api/rebar-hook-types"))
+);
+
+server.tool(
+  "get_rebar_in_host",
+  "Get all existing rebar in a host element (beam, column, wall, floor) with bar type, layout, spacing, and count.",
+  { hostId: z.number().describe("Host element ID (beam, column, wall, or floor).") },
+  async ({ hostId }) => t(await callRevit("/api/rebar-in-host", { ElementId: hostId }))
+);
+
+server.tool(
+  "get_host_rebar_info",
+  "Get host element geometry info for rebar planning: bounding box (dimensions in mm/ft), start/end points, length, and cover settings. Call this BEFORE placing rebar.",
+  { hostId: z.number().describe("Host element ID.") },
+  async ({ hostId }) => t(await callRevit("/api/host-rebar-info", { ElementId: hostId }))
+);
+
+server.tool(
+  "get_rebar_cover_types",
+  "Get all rebar cover types (cover distances) in the model.",
+  {},
+  async () => t(await callRevit("/api/rebar-cover-types"))
+);
+
+server.tool(
+  "place_rebar",
+  "Place rebar from point-defined curves in a host element. For straight bars: 2 points. For L-bars: 3 points. For stirrups: set isClosed=true with 4 corner points. All coordinates in feet. Use get_host_rebar_info first to get host geometry and cover.",
+  {
+    hostId: z.number().describe("Host element ID (beam/column/wall/floor)."),
+    barTypeId: z.number().describe("RebarBarType ID from get_rebar_bar_types."),
+    points: z.array(z.object({
+      x: z.number(), y: z.number(), z: z.number()
+    })).describe("Rebar curve points in feet. Straight=2pts, L-bar=3pts, stirrup=4pts."),
+    isClosed: z.boolean().optional().describe("True for stirrups/ties (closes the loop)."),
+    isStirrup: z.boolean().optional().describe("True for StirrupTie style, false for Standard."),
+    normalX: z.number().optional().describe("Rebar plane normal X (default 0)."),
+    normalY: z.number().optional().describe("Rebar plane normal Y (default 0)."),
+    normalZ: z.number().optional().describe("Rebar plane normal Z (default 1)."),
+    hookTypeId0: z.number().optional().describe("Start hook type ID."),
+    hookTypeId1: z.number().optional().describe("End hook type ID."),
+    layoutRule: z.enum(["Single", "FixedNumber", "MaxSpacing", "MinClearSpacing", "NumberWithSpacing"]).optional().describe("Distribution rule."),
+    layoutCount: z.number().optional().describe("Number of bars (for FixedNumber/NumberWithSpacing)."),
+    layoutSpacing: z.number().optional().describe("Spacing in feet (for MaxSpacing/MinClearSpacing/NumberWithSpacing)."),
+    layoutLength: z.number().optional().describe("Array length in feet (distribution span)."),
+  },
+  async (args) =>
+    t(await callRevit("/api/place-rebar", {
+      HostId: args.hostId, BarTypeId: args.barTypeId,
+      Points: args.points.map(p => ({ X: p.x, Y: p.y, Z: p.z })),
+      IsClosed: args.isClosed ?? false, IsStirrup: args.isStirrup ?? false,
+      NormalX: args.normalX ?? null, NormalY: args.normalY ?? null, NormalZ: args.normalZ ?? null,
+      HookTypeId0: args.hookTypeId0 ?? null, HookTypeId1: args.hookTypeId1 ?? null,
+      LayoutRule: args.layoutRule ?? null, LayoutCount: args.layoutCount ?? null,
+      LayoutSpacing: args.layoutSpacing ?? null, LayoutLength: args.layoutLength ?? null,
+    }))
+);
+
+server.tool(
+  "place_stirrups",
+  "Place rectangular stirrups/ties in a host element. Specify center origin, width, height, and normal direction. All dimensions in feet. Use get_host_rebar_info to calculate dimensions from host geometry minus cover.",
+  {
+    hostId: z.number().describe("Host element ID."),
+    barTypeId: z.number().describe("Stirrup bar type ID."),
+    originX: z.number().describe("Stirrup center X in feet."),
+    originY: z.number().describe("Stirrup center Y in feet."),
+    originZ: z.number().describe("Stirrup center Z in feet."),
+    widthFt: z.number().describe("Stirrup width in feet."),
+    heightFt: z.number().describe("Stirrup height in feet."),
+    normalX: z.number().optional().describe("Normal X (along beam axis)."),
+    normalY: z.number().optional().describe("Normal Y."),
+    normalZ: z.number().optional().describe("Normal Z."),
+    hookTypeId: z.number().optional().describe("Hook type ID for stirrup bends."),
+    layoutRule: z.enum(["Single", "FixedNumber", "MaxSpacing", "MinClearSpacing", "NumberWithSpacing"]).optional(),
+    layoutCount: z.number().optional().describe("Number of stirrups."),
+    layoutSpacing: z.number().optional().describe("Stirrup spacing in feet."),
+    layoutLength: z.number().optional().describe("Distribution length in feet."),
+  },
+  async (args) =>
+    t(await callRevit("/api/place-stirrups", {
+      HostId: args.hostId, BarTypeId: args.barTypeId,
+      OriginX: args.originX, OriginY: args.originY, OriginZ: args.originZ,
+      WidthFt: args.widthFt, HeightFt: args.heightFt,
+      NormalX: args.normalX ?? null, NormalY: args.normalY ?? null, NormalZ: args.normalZ ?? null,
+      HookTypeId: args.hookTypeId ?? null,
+      LayoutRule: args.layoutRule ?? null, LayoutCount: args.layoutCount ?? null,
+      LayoutSpacing: args.layoutSpacing ?? null, LayoutLength: args.layoutLength ?? null,
+    }))
+);
+
+server.tool(
+  "set_rebar_layout",
+  "Change the distribution/layout of an existing rebar (spacing, count, rule).",
+  {
+    rebarId: z.number().describe("Rebar element ID."),
+    layoutRule: z.enum(["Single", "FixedNumber", "MaxSpacing", "MinClearSpacing", "NumberWithSpacing"]).describe("Layout rule."),
+    count: z.number().optional().describe("Number of bars."),
+    spacing: z.number().optional().describe("Spacing in feet."),
+    arrayLength: z.number().optional().describe("Distribution length in feet."),
+  },
+  async ({ rebarId, layoutRule, count, spacing, arrayLength }) =>
+    t(await callRevit("/api/set-rebar-layout", {
+      RebarId: rebarId, LayoutRule: layoutRule,
+      Count: count ?? null, Spacing: spacing ?? null, ArrayLength: arrayLength ?? null,
+    }))
+);
+
+server.tool(
+  "set_rebar_cover",
+  "Set rebar cover types on a host element (top, bottom, sides). Use get_rebar_cover_types to find available cover type IDs.",
+  {
+    hostId: z.number().describe("Host element ID."),
+    topCoverTypeId: z.number().optional().describe("Cover type ID for top."),
+    bottomCoverTypeId: z.number().optional().describe("Cover type ID for bottom."),
+    otherCoverTypeId: z.number().optional().describe("Cover type ID for sides."),
+  },
+  async ({ hostId, topCoverTypeId, bottomCoverTypeId, otherCoverTypeId }) =>
+    t(await callRevit("/api/set-rebar-cover", {
+      HostId: hostId,
+      TopCoverTypeId: topCoverTypeId ?? null,
+      BottomCoverTypeId: bottomCoverTypeId ?? null,
+      OtherCoverTypeId: otherCoverTypeId ?? null,
+    }))
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //  GRID EXTENT TOOLS (2D + 3D)
 // ═══════════════════════════════════════════════════════════════════════════════
 

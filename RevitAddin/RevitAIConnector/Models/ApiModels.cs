@@ -291,6 +291,69 @@ namespace RevitAIConnector.Models
         public int ParameterId { get; set; }
     }
 
+    // ─── Rebar Requests ──────────────────────────────────────────────────────
+
+    public class RebarPoint
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
+    }
+
+    public class RebarFromCurvesRequest
+    {
+        public int HostId { get; set; }
+        public int BarTypeId { get; set; }
+        public int? HookTypeId0 { get; set; }
+        public int? HookTypeId1 { get; set; }
+        public double? NormalX { get; set; }
+        public double? NormalY { get; set; }
+        public double? NormalZ { get; set; }
+        public List<RebarPoint> Points { get; set; }
+        public bool IsClosed { get; set; }
+        public bool IsStirrup { get; set; }
+        public string LayoutRule { get; set; }
+        public int? LayoutCount { get; set; }
+        public double? LayoutSpacing { get; set; }
+        public double? LayoutLength { get; set; }
+    }
+
+    public class StirrupRequest
+    {
+        public int HostId { get; set; }
+        public int BarTypeId { get; set; }
+        public int? HookTypeId { get; set; }
+        public double OriginX { get; set; }
+        public double OriginY { get; set; }
+        public double OriginZ { get; set; }
+        public double WidthFt { get; set; }
+        public double HeightFt { get; set; }
+        public double? NormalX { get; set; }
+        public double? NormalY { get; set; }
+        public double? NormalZ { get; set; }
+        public string LayoutRule { get; set; }
+        public int? LayoutCount { get; set; }
+        public double? LayoutSpacing { get; set; }
+        public double? LayoutLength { get; set; }
+    }
+
+    public class RebarLayoutRequest
+    {
+        public int RebarId { get; set; }
+        public string LayoutRule { get; set; }
+        public int? Count { get; set; }
+        public double? Spacing { get; set; }
+        public double? ArrayLength { get; set; }
+    }
+
+    public class SetRebarCoverRequest
+    {
+        public int HostId { get; set; }
+        public int? TopCoverTypeId { get; set; }
+        public int? BottomCoverTypeId { get; set; }
+        public int? OtherCoverTypeId { get; set; }
+    }
+
     // ─── Info DTOs ───────────────────────────────────────────────────────────
 
     public class CategoryInfo
