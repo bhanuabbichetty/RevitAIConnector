@@ -89,7 +89,7 @@ $mcpServerPath = "$mcpDir\dist\index.js" -replace "\\", "/"
 
 $mcpConfig = @{
     mcpServers = @{
-        "revit-ai-connector" = @{
+        "rvt-ai" = @{
             command = "node"
             args = @($mcpServerPath)
             env = @{}
@@ -102,7 +102,7 @@ if (Test-Path $cursorMcpPath) {
     if ($null -eq $existing.mcpServers) {
         $existing | Add-Member -NotePropertyName "mcpServers" -NotePropertyValue @{}
     }
-    $existing.mcpServers | Add-Member -NotePropertyName "revit-ai-connector" -NotePropertyValue $mcpConfig.mcpServers."revit-ai-connector" -Force
+    $existing.mcpServers | Add-Member -NotePropertyName "rvt-ai" -NotePropertyValue $mcpConfig.mcpServers."rvt-ai" -Force
     $existing | ConvertTo-Json -Depth 10 | Set-Content $cursorMcpPath -Encoding UTF8
 } else {
     $mcpConfig | ConvertTo-Json -Depth 10 | Set-Content $cursorMcpPath -Encoding UTF8
@@ -120,6 +120,6 @@ Write-Host "Next steps:" -ForegroundColor White
 Write-Host "  1. Start (or restart) Revit $RevitVersion" -ForegroundColor White
 Write-Host "     You should see 'AI Connector started on port 52010'" -ForegroundColor Gray
 Write-Host "  2. Restart Cursor" -ForegroundColor White
-Write-Host "     The 'revit-ai-connector' MCP server should appear in Settings > MCP" -ForegroundColor Gray
+Write-Host "     The 'rvt-ai' MCP server should appear in Settings > MCP" -ForegroundColor Gray
 Write-Host "  3. Open a Revit model and start chatting with the AI!" -ForegroundColor White
 Write-Host ""

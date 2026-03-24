@@ -1222,6 +1222,686 @@ server.tool(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//  VIEW MANAGEMENT TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("create_floor_plan", "Create a new floor plan view for a level.", {
+  levelId: z.number().describe("Level element ID."),
+  viewName: z.string().optional().describe("Optional name for the new view."),
+}, async ({ levelId, viewName }) => t(await callRevit("/api/create-floor-plan", { LevelId: levelId, ViewName: viewName ?? null })));
+
+server.tool("create_ceiling_plan", "Create a new ceiling plan view for a level.", {
+  levelId: z.number().describe("Level element ID."),
+  viewName: z.string().optional().describe("Optional name for the new view."),
+}, async ({ levelId, viewName }) => t(await callRevit("/api/create-ceiling-plan", { LevelId: levelId, ViewName: viewName ?? null })));
+
+server.tool("create_section_view", "Create a section view with a bounding box.", {
+  minX: z.number(), minY: z.number(), minZ: z.number(),
+  maxX: z.number(), maxY: z.number(), maxZ: z.number(),
+  directionX: z.number().optional(), directionY: z.number().optional(), directionZ: z.number().optional(),
+  viewName: z.string().optional(),
+}, async (args) => t(await callRevit("/api/create-section", {
+  MinX: args.minX, MinY: args.minY, MinZ: args.minZ, MaxX: args.maxX, MaxY: args.maxY, MaxZ: args.maxZ,
+  DirectionX: args.directionX ?? null, DirectionY: args.directionY ?? null, DirectionZ: args.directionZ ?? null, ViewName: args.viewName ?? null
+})));
+
+server.tool("create_3d_view", "Create a 3D isometric or perspective view.", {
+  isPerspective: z.boolean().optional().describe("True for perspective, false/omit for isometric."),
+  eyeX: z.number().optional(), eyeY: z.number().optional(), eyeZ: z.number().optional(),
+  forwardX: z.number().optional(), forwardY: z.number().optional(), forwardZ: z.number().optional(),
+  upX: z.number().optional(), upY: z.number().optional(), upZ: z.number().optional(),
+  viewName: z.string().optional(),
+}, async (args) => t(await callRevit("/api/create-3d-view", {
+  IsPerspective: args.isPerspective ?? false,
+  EyeX: args.eyeX ?? null, EyeY: args.eyeY ?? null, EyeZ: args.eyeZ ?? null,
+  ForwardX: args.forwardX ?? null, ForwardY: args.forwardY ?? null, ForwardZ: args.forwardZ ?? null,
+  UpX: args.upX ?? null, UpY: args.upY ?? null, UpZ: args.upZ ?? null, ViewName: args.viewName ?? null
+})));
+
+server.tool("create_drafting_view", "Create a new drafting view.", {
+  name: z.string().optional().describe("Name for the drafting view."),
+}, async ({ name }) => t(await callRevit("/api/create-drafting-view", { Name: name ?? null })));
+
+server.tool("duplicate_view", "Duplicate a view (Duplicate, WithDetailing, or AsDependent).", {
+  viewId: z.number().describe("View to duplicate."),
+  option: z.enum(["Duplicate", "WithDetailing", "AsDependent"]).optional(),
+  newName: z.string().optional(),
+}, async ({ viewId, option, newName }) => t(await callRevit("/api/duplicate-view", { ViewId: viewId, Option: option ?? "Duplicate", NewName: newName ?? null })));
+
+server.tool("set_view_crop_box", "Set crop box for a view.", {
+  viewId: z.number(),
+  active: z.boolean().optional(), visible: z.boolean().optional(),
+  minX: z.number().optional(), minY: z.number().optional(), minZ: z.number().optional(),
+  maxX: z.number().optional(), maxY: z.number().optional(), maxZ: z.number().optional(),
+}, async (a) => t(await callRevit("/api/set-view-crop-box", {
+  ViewId: a.viewId, Active: a.active ?? null, Visible: a.visible ?? null,
+  MinX: a.minX ?? null, MinY: a.minY ?? null, MinZ: a.minZ ?? null,
+  MaxX: a.maxX ?? null, MaxY: a.maxY ?? null, MaxZ: a.maxZ ?? null
+})));
+
+server.tool("set_view_properties", "Set view scale, detail level, template, or rename.", {
+  viewId: z.number(),
+  scale: z.number().optional().describe("View scale (e.g. 100 = 1:100)."),
+  detailLevel: z.enum(["Coarse", "Medium", "Fine"]).optional(),
+  templateId: z.number().optional().describe("View template ID, -1 to remove."),
+  newName: z.string().optional(),
+}, async (a) => t(await callRevit("/api/set-view-properties", {
+  ViewId: a.viewId, Scale: a.scale ?? null, DetailLevel: a.detailLevel ?? null,
+  TemplateId: a.templateId ?? null, NewName: a.newName ?? null
+})));
+
+server.tool("set_view_range", "Set view range offsets for a plan view (feet).", {
+  viewId: z.number(),
+  topOffset: z.number().optional(), cutOffset: z.number().optional(),
+  bottomOffset: z.number().optional(), viewDepthOffset: z.number().optional(),
+}, async (a) => t(await callRevit("/api/set-view-range", {
+  ViewId: a.viewId, TopOffset: a.topOffset ?? null, CutOffset: a.cutOffset ?? null,
+  BottomOffset: a.bottomOffset ?? null, ViewDepthOffset: a.viewDepthOffset ?? null
+})));
+
+server.tool("set_3d_section_box", "Set or toggle section box on a 3D view.", {
+  viewId: z.number(),
+  minX: z.number(), minY: z.number(), minZ: z.number(),
+  maxX: z.number(), maxY: z.number(), maxZ: z.number(),
+  enabled: z.boolean().optional(),
+}, async (a) => t(await callRevit("/api/set-3d-section-box", {
+  ViewId: a.viewId, MinX: a.minX, MinY: a.minY, MinZ: a.minZ,
+  MaxX: a.maxX, MaxY: a.maxY, MaxZ: a.maxZ, Enabled: a.enabled ?? true
+})));
+
+server.tool("hide_elements_in_view", "Permanently hide elements in a view.", {
+  elementIds: z.array(z.number()),
+  viewId: z.number().optional(),
+}, async ({ elementIds, viewId }) => t(await callRevit("/api/hide-elements", { ElementIds: elementIds, ViewId: viewId ?? null, Hide: true })));
+
+server.tool("unhide_elements_in_view", "Unhide previously hidden elements.", {
+  elementIds: z.array(z.number()),
+  viewId: z.number().optional(),
+}, async ({ elementIds, viewId }) => t(await callRevit("/api/unhide-elements", { ElementIds: elementIds, ViewId: viewId ?? null, Hide: false })));
+
+server.tool("hide_category_in_view", "Hide/unhide a category in a view.", {
+  categoryIds: z.array(z.number()),
+  viewId: z.number().optional(),
+  hide: z.boolean().describe("True to hide, false to unhide."),
+}, async ({ categoryIds, viewId, hide }) => t(await callRevit("/api/hide-category", { CategoryIds: categoryIds, ViewId: viewId ?? null, Hide: hide })));
+
+server.tool("reset_temporary_hide", "Reset temporary hide/isolate in a view.", {
+  viewId: z.number().optional(),
+}, async ({ viewId }) => t(await callRevit("/api/reset-temporary-hide", { ViewId: viewId ?? null })));
+
+server.tool("zoom_to_elements", "Zoom the active view to show specific elements.", {
+  elementIds: z.array(z.number()),
+}, async ({ elementIds }) => t(await callRevit("/api/zoom-to-elements", { ElementIds: elementIds })));
+
+server.tool("get_view_templates", "List all view templates in the model.", {}, async () => t(await callRevit("/api/get-view-templates")));
+
+server.tool("get_view_family_types", "List all view family types (floor plan, section, etc).", {}, async () => t(await callRevit("/api/get-view-family-types")));
+
+server.tool("create_callout", "Create a callout view in a parent plan view.", {
+  parentViewId: z.number(), minX: z.number(), minY: z.number(), maxX: z.number(), maxY: z.number(),
+}, async (a) => t(await callRevit("/api/create-callout", { ParentViewId: a.parentViewId, MinX: a.minX, MinY: a.minY, MaxX: a.maxX, MaxY: a.maxY })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  MATERIAL TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_all_materials", "Get all materials in the model.", {}, async () => t(await callRevit("/api/all-materials")));
+
+server.tool("get_material_properties", "Get detailed properties for specific materials.", {
+  elementIds: z.array(z.number()).describe("Material element IDs."),
+}, async ({ elementIds }) => t(await callRevit("/api/material-properties", { ElementIds: elementIds })));
+
+server.tool("set_material_color", "Set color and transparency for a material.", {
+  materialId: z.number(),
+  colorR: z.number().optional(), colorG: z.number().optional(), colorB: z.number().optional(),
+  transparency: z.number().optional().describe("0-100"),
+}, async (a) => t(await callRevit("/api/set-material-color", {
+  MaterialId: a.materialId, ColorR: a.colorR ?? null, ColorG: a.colorG ?? null, ColorB: a.colorB ?? null, Transparency: a.transparency ?? null
+})));
+
+server.tool("create_material", "Create a new material.", {
+  name: z.string(),
+  colorR: z.number().optional(), colorG: z.number().optional(), colorB: z.number().optional(),
+  transparency: z.number().optional(), materialClass: z.string().optional(),
+}, async (a) => t(await callRevit("/api/create-material", {
+  Name: a.name, ColorR: a.colorR ?? null, ColorG: a.colorG ?? null, ColorB: a.colorB ?? null,
+  Transparency: a.transparency ?? null, MaterialClass: a.materialClass ?? null
+})));
+
+server.tool("get_material_quantities", "Get material areas/volumes for elements.", {
+  elementIds: z.array(z.number()),
+}, async ({ elementIds }) => t(await callRevit("/api/material-quantities", { ElementIds: elementIds })));
+
+server.tool("get_painted_materials", "Get materials painted on element faces.", {
+  elementId: z.number(),
+}, async ({ elementId }) => t(await callRevit("/api/painted-materials", { ElementId: elementId })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  PHASE TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_all_phases", "Get all phases in the project.", {}, async () => t(await callRevit("/api/all-phases")));
+
+server.tool("get_phase_filters", "Get all phase filters.", {}, async () => t(await callRevit("/api/phase-filters")));
+
+server.tool("set_element_phase", "Set created/demolished phase for elements.", {
+  elementIds: z.array(z.number()),
+  createdPhaseId: z.number().optional(),
+  demolishedPhaseId: z.number().optional().describe("Set -1 to clear demolished."),
+}, async (a) => t(await callRevit("/api/set-element-phase", {
+  ElementIds: a.elementIds, CreatedPhaseId: a.createdPhaseId ?? null, DemolishedPhaseId: a.demolishedPhaseId ?? null
+})));
+
+server.tool("get_elements_by_phase", "Get elements created/demolished in a phase.", {
+  elementId: z.number().describe("Phase element ID."),
+}, async ({ elementId }) => t(await callRevit("/api/elements-by-phase", { ElementId: elementId })));
+
+server.tool("set_view_phase", "Set the phase and phase filter for a view.", {
+  viewId: z.number(), phaseId: z.number().optional(), phaseFilterId: z.number().optional(),
+}, async (a) => t(await callRevit("/api/set-view-phase", { ViewId: a.viewId, PhaseId: a.phaseId ?? null, PhaseFilterId: a.phaseFilterId ?? null })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  MEP TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("create_duct", "Create a duct between two points.", {
+  startX: z.number(), startY: z.number(), startZ: z.number(),
+  endX: z.number(), endY: z.number(), endZ: z.number(),
+  typeId: z.number().optional(), levelId: z.number().optional(),
+  systemTypeName: z.string().optional(), diameter: z.number().optional(),
+  width: z.number().optional(), height: z.number().optional(),
+}, async (a) => t(await callRevit("/api/create-duct", a)));
+
+server.tool("create_pipe", "Create a pipe between two points.", {
+  startX: z.number(), startY: z.number(), startZ: z.number(),
+  endX: z.number(), endY: z.number(), endZ: z.number(),
+  typeId: z.number().optional(), levelId: z.number().optional(),
+  systemTypeName: z.string().optional(), diameter: z.number().optional(),
+}, async (a) => t(await callRevit("/api/create-pipe", a)));
+
+server.tool("create_flex_duct", "Create a flex duct through points.", {
+  points: z.array(z.object({ X: z.number(), Y: z.number(), Z: z.number() })).min(2),
+  typeId: z.number().optional(), levelId: z.number().optional(), systemTypeName: z.string().optional(),
+}, async (a) => t(await callRevit("/api/create-flex-duct", { Points: a.points, TypeId: a.typeId ?? null, LevelId: a.levelId ?? null, SystemTypeName: a.systemTypeName ?? null })));
+
+server.tool("create_flex_pipe", "Create a flex pipe through points.", {
+  points: z.array(z.object({ X: z.number(), Y: z.number(), Z: z.number() })).min(2),
+  typeId: z.number().optional(), levelId: z.number().optional(), systemTypeName: z.string().optional(),
+}, async (a) => t(await callRevit("/api/create-flex-pipe", { Points: a.points, TypeId: a.typeId ?? null, LevelId: a.levelId ?? null, SystemTypeName: a.systemTypeName ?? null })));
+
+server.tool("create_cable_tray", "Create a cable tray between two points.", {
+  startX: z.number(), startY: z.number(), startZ: z.number(),
+  endX: z.number(), endY: z.number(), endZ: z.number(),
+  typeId: z.number().optional(), levelId: z.number().optional(),
+  width: z.number().optional(), height: z.number().optional(),
+}, async (a) => t(await callRevit("/api/create-cable-tray", a)));
+
+server.tool("create_conduit", "Create a conduit between two points.", {
+  startX: z.number(), startY: z.number(), startZ: z.number(),
+  endX: z.number(), endY: z.number(), endZ: z.number(),
+  typeId: z.number().optional(), levelId: z.number().optional(), diameter: z.number().optional(),
+}, async (a) => t(await callRevit("/api/create-conduit", a)));
+
+server.tool("get_mep_systems", "Get all MEP systems in the model.", {}, async () => t(await callRevit("/api/mep-systems")));
+
+server.tool("get_mep_connectors", "Get connectors on an MEP element.", {
+  elementId: z.number(),
+}, async ({ elementId }) => t(await callRevit("/api/mep-connectors", { ElementId: elementId })));
+
+server.tool("get_mep_system_types", "Get all mechanical and piping system types.", {}, async () => t(await callRevit("/api/mep-system-types")));
+
+server.tool("get_duct_pipe_types", "Get all duct, pipe, cable tray, and conduit types.", {}, async () => t(await callRevit("/api/duct-pipe-types")));
+
+server.tool("get_electrical_circuits", "Get all electrical circuits.", {}, async () => t(await callRevit("/api/electrical-circuits")));
+
+server.tool("get_mep_spaces", "Get all MEP spaces (HVAC spaces).", {}, async () => t(await callRevit("/api/mep-spaces")));
+
+server.tool("connect_mep_elements", "Connect two MEP elements via closest connectors.", {
+  elementId1: z.number(), elementId2: z.number(),
+}, async (a) => t(await callRevit("/api/connect-mep", { ElementId1: a.elementId1, ElementId2: a.elementId2 })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  ANNOTATION TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("create_text_note", "Create a text note in a view.", {
+  text: z.string(), x: z.number(), y: z.number(),
+  viewId: z.number().optional(), typeId: z.number().optional(),
+}, async (a) => t(await callRevit("/api/create-text-note", { Text: a.text, X: a.x, Y: a.y, ViewId: a.viewId ?? null, TypeId: a.typeId ?? null })));
+
+server.tool("create_detail_line", "Create a detail line in a view.", {
+  startX: z.number(), startY: z.number(), endX: z.number(), endY: z.number(),
+  viewId: z.number().optional(), lineStyleName: z.string().optional(),
+}, async (a) => t(await callRevit("/api/create-detail-line", {
+  StartX: a.startX, StartY: a.startY, EndX: a.endX, EndY: a.endY,
+  ViewId: a.viewId ?? null, LineStyleName: a.lineStyleName ?? null
+})));
+
+server.tool("create_filled_region", "Create a filled region from boundary points.", {
+  points: z.array(z.object({ X: z.number(), Y: z.number(), Z: z.number() })).min(3),
+  viewId: z.number().optional(), typeId: z.number().optional(),
+}, async (a) => t(await callRevit("/api/create-filled-region", { Points: a.points, ViewId: a.viewId ?? null, TypeId: a.typeId ?? null })));
+
+server.tool("tag_elements_in_view", "Auto-tag elements in the active or specified view.", {
+  elementIds: z.array(z.number()), viewId: z.number().optional(),
+  tagTypeId: z.number().optional(), addLeader: z.boolean().optional(),
+  offsetX: z.number().optional(), offsetY: z.number().optional(),
+}, async (a) => t(await callRevit("/api/tag-elements", {
+  ElementIds: a.elementIds, ViewId: a.viewId ?? null, TagTypeId: a.tagTypeId ?? null,
+  AddLeader: a.addLeader ?? false, OffsetX: a.offsetX ?? 0, OffsetY: a.offsetY ?? 2
+})));
+
+server.tool("create_spot_elevation", "Create a spot elevation on an element face.", {
+  elementId: z.number(), x: z.number(), y: z.number(), z: z.number(),
+  viewId: z.number().optional(),
+  bendX: z.number().optional(), bendY: z.number().optional(),
+  endX: z.number().optional(), endY: z.number().optional(),
+}, async (a) => t(await callRevit("/api/create-spot-elevation", {
+  ElementId: a.elementId, X: a.x, Y: a.y, Z: a.z, ViewId: a.viewId ?? null,
+  BendX: a.bendX ?? null, BendY: a.bendY ?? null, EndX: a.endX ?? null, EndY: a.endY ?? null
+})));
+
+server.tool("create_revision_cloud", "Create a revision cloud in a view.", {
+  points: z.array(z.object({ X: z.number(), Y: z.number(), Z: z.number() })).min(3),
+  viewId: z.number().optional(), revisionId: z.number().optional(),
+}, async (a) => t(await callRevit("/api/create-revision-cloud", { Points: a.points, ViewId: a.viewId ?? null, RevisionId: a.revisionId ?? null })));
+
+server.tool("move_tag", "Move a tag to a new head position.", {
+  tagId: z.number(), x: z.number(), y: z.number(), hasLeader: z.boolean().optional(),
+}, async (a) => t(await callRevit("/api/move-tag", { TagId: a.tagId, X: a.x, Y: a.y, HasLeader: a.hasLeader ?? null })));
+
+server.tool("get_all_tag_types", "Get all annotation/tag family types.", {}, async () => t(await callRevit("/api/all-tag-types")));
+server.tool("get_text_note_types", "Get all text note types.", {}, async () => t(await callRevit("/api/text-note-types")));
+server.tool("get_filled_region_types", "Get all filled region types.", {}, async () => t(await callRevit("/api/filled-region-types")));
+server.tool("get_line_styles", "Get all line styles (sub-categories of Lines).", {}, async () => t(await callRevit("/api/line-styles")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  SCHEDULE TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("create_schedule", "Create a new schedule for a category.", {
+  categoryId: z.number().describe("BuiltInCategory integer."),
+  name: z.string().optional(),
+  fieldNames: z.array(z.string()).optional().describe("Parameter names to add as columns."),
+}, async (a) => t(await callRevit("/api/create-schedule", { CategoryId: a.categoryId, Name: a.name ?? null, FieldNames: a.fieldNames ?? null })));
+
+server.tool("add_schedule_field", "Add fields/columns to an existing schedule.", {
+  scheduleId: z.number(), fieldNames: z.array(z.string()),
+}, async (a) => t(await callRevit("/api/add-schedule-field", { ScheduleId: a.scheduleId, FieldNames: a.fieldNames })));
+
+server.tool("remove_schedule_field", "Remove fields from a schedule.", {
+  scheduleId: z.number(), fieldNames: z.array(z.string()),
+}, async (a) => t(await callRevit("/api/remove-schedule-field", { ScheduleId: a.scheduleId, FieldNames: a.fieldNames })));
+
+server.tool("set_schedule_filter", "Add a filter to a schedule.", {
+  scheduleId: z.number(), fieldName: z.string(), filterType: z.string().describe("Equal, NotEqual, Contains, Greater, Less, etc."), value: z.string(),
+}, async (a) => t(await callRevit("/api/set-schedule-filter", { ScheduleId: a.scheduleId, FieldName: a.fieldName, FilterType: a.filterType, Value: a.value })));
+
+server.tool("set_schedule_sorting", "Add sorting to a schedule.", {
+  scheduleId: z.number(), fieldName: z.string(), descending: z.boolean().optional(),
+}, async (a) => t(await callRevit("/api/set-schedule-sorting", { ScheduleId: a.scheduleId, FieldName: a.fieldName, Descending: a.descending ?? false })));
+
+server.tool("get_schedule_data", "Get all cell data from a schedule as rows.", {
+  elementId: z.number().describe("Schedule view ID."),
+}, async ({ elementId }) => t(await callRevit("/api/schedule-data", { ElementId: elementId })));
+
+server.tool("export_schedule_csv", "Export a schedule to CSV file.", {
+  scheduleId: z.number(), folderPath: z.string().optional(), fileName: z.string().optional(),
+}, async (a) => t(await callRevit("/api/export-schedule-csv", { ScheduleId: a.scheduleId, FolderPath: a.folderPath ?? null, FileName: a.fileName ?? null })));
+
+server.tool("get_schedulable_fields", "Get all available fields that can be added to a schedule.", {
+  elementId: z.number().describe("Schedule view ID."),
+}, async ({ elementId }) => t(await callRevit("/api/schedulable-fields", { ElementId: elementId })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  EXPORT TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("export_to_dwg", "Export views to DWG format.", {
+  viewIds: z.array(z.number()).optional(), folderPath: z.string().optional(), fileName: z.string().optional(),
+}, async (a) => t(await callRevit("/api/export-dwg", { ViewIds: a.viewIds ?? null, FolderPath: a.folderPath ?? null, FileName: a.fileName ?? null })));
+
+server.tool("export_to_ifc", "Export model to IFC format.", {
+  folderPath: z.string().optional(), fileName: z.string().optional(),
+}, async (a) => t(await callRevit("/api/export-ifc", { FolderPath: a.folderPath ?? null, FileName: a.fileName ?? null })));
+
+server.tool("export_view_image", "Export a view as an image (PNG, JPG, BMP, TIFF).", {
+  viewId: z.number().optional(), folderPath: z.string().optional(), fileName: z.string().optional(),
+  format: z.enum(["PNG", "JPG", "BMP", "TIFF"]).optional(), pixelSize: z.number().optional(),
+}, async (a) => t(await callRevit("/api/export-image", {
+  ViewId: a.viewId ?? null, FolderPath: a.folderPath ?? null, FileName: a.fileName ?? null,
+  Format: a.format ?? "PNG", PixelSize: a.pixelSize ?? null
+})));
+
+server.tool("export_to_pdf", "Export views/sheets to PDF.", {
+  viewIds: z.array(z.number()).optional(), folderPath: z.string().optional(), fileName: z.string().optional(),
+}, async (a) => t(await callRevit("/api/export-pdf", { ViewIds: a.viewIds ?? null, FolderPath: a.folderPath ?? null, FileName: a.fileName ?? null })));
+
+server.tool("export_to_nwc", "Export to Navisworks NWC format.", {
+  viewIds: z.array(z.number()).optional(), folderPath: z.string().optional(), fileName: z.string().optional(),
+}, async (a) => t(await callRevit("/api/export-nwc", { ViewIds: a.viewIds ?? null, FolderPath: a.folderPath ?? null, FileName: a.fileName ?? null })));
+
+server.tool("get_print_settings", "Get printer name and print settings.", {}, async () => t(await callRevit("/api/print-settings")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  OPENING TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("create_wall_opening", "Create a rectangular opening in a wall.", {
+  wallId: z.number(), minX: z.number(), minY: z.number(), minZ: z.number(), maxX: z.number(), maxY: z.number(), maxZ: z.number(),
+}, async (a) => t(await callRevit("/api/create-wall-opening", a)));
+
+server.tool("create_floor_opening", "Create an opening in a floor from boundary points.", {
+  floorId: z.number(), points: z.array(z.object({ X: z.number(), Y: z.number(), Z: z.number() })).min(3),
+}, async (a) => t(await callRevit("/api/create-floor-opening", { FloorId: a.floorId, Points: a.points })));
+
+server.tool("create_shaft_opening", "Create a shaft opening between two levels.", {
+  baseLevelId: z.number(), topLevelId: z.number(), points: z.array(z.object({ X: z.number(), Y: z.number(), Z: z.number() })).min(3),
+}, async (a) => t(await callRevit("/api/create-shaft-opening", { BaseLevelId: a.baseLevelId, TopLevelId: a.topLevelId, Points: a.points })));
+
+server.tool("get_openings_in_host", "Get all openings in a host element (wall, floor).", {
+  elementId: z.number(),
+}, async ({ elementId }) => t(await callRevit("/api/openings-in-host", { ElementId: elementId })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  CURTAIN WALL TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_curtain_panels", "Get all panels of a curtain wall.", {
+  elementId: z.number().describe("Curtain wall element ID."),
+}, async ({ elementId }) => t(await callRevit("/api/curtain-panels", { ElementId: elementId })));
+
+server.tool("get_curtain_grid_lines", "Get U and V grid lines of a curtain wall.", {
+  elementId: z.number(),
+}, async ({ elementId }) => t(await callRevit("/api/curtain-grid-lines", { ElementId: elementId })));
+
+server.tool("get_curtain_mullions", "Get all mullions of a curtain wall.", {
+  elementId: z.number(),
+}, async ({ elementId }) => t(await callRevit("/api/curtain-mullions", { ElementId: elementId })));
+
+server.tool("set_curtain_panel_type", "Change the type of curtain wall panels.", {
+  panelIds: z.array(z.number()), newTypeId: z.number(),
+}, async (a) => t(await callRevit("/api/set-curtain-panel-type", { PanelIds: a.panelIds, NewTypeId: a.newTypeId })));
+
+server.tool("add_curtain_grid_line", "Add a grid line to a curtain wall.", {
+  wallId: z.number(), isUDirection: z.boolean(), x: z.number(), y: z.number(), z: z.number(),
+}, async (a) => t(await callRevit("/api/add-curtain-grid-line", a)));
+
+server.tool("set_mullion_type", "Change the type of mullions.", {
+  panelIds: z.array(z.number()).describe("Mullion element IDs."), newTypeId: z.number(),
+}, async (a) => t(await callRevit("/api/set-mullion-type", { PanelIds: a.panelIds, NewTypeId: a.newTypeId })));
+
+server.tool("get_curtain_wall_types", "Get all curtain wall, panel, and mullion types.", {}, async () => t(await callRevit("/api/curtain-wall-types")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  FILTER / RULE TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("create_parameter_filter", "Create a view filter with rules.", {
+  filterName: z.string(), categoryIds: z.array(z.number()),
+  rules: z.array(z.object({
+    parameterId: z.number(), ruleType: z.string().describe("equals, notequals, contains, beginswith, endswith, greater, less, greaterorequal, lessorequal"),
+    stringValue: z.string().optional(), numericValue: z.number().optional(),
+  })).optional(),
+}, async (a) => t(await callRevit("/api/create-parameter-filter", { FilterName: a.filterName, CategoryIds: a.categoryIds, Rules: a.rules ?? null })));
+
+server.tool("get_filter_rules", "Get categories and info for a parameter filter.", {
+  elementId: z.number().describe("Filter element ID."),
+}, async ({ elementId }) => t(await callRevit("/api/filter-rules", { ElementId: elementId })));
+
+server.tool("add_filter_to_view", "Apply a filter to a view.", {
+  viewId: z.number(), filterId: z.number(), visible: z.boolean().optional(),
+}, async (a) => t(await callRevit("/api/add-filter-to-view", { ViewId: a.viewId, FilterId: a.filterId, Visible: a.visible ?? true })));
+
+server.tool("remove_filter_from_view", "Remove a filter from a view.", {
+  viewId: z.number(), filterId: z.number(),
+}, async (a) => t(await callRevit("/api/remove-filter-from-view", { ViewId: a.viewId, FilterId: a.filterId })));
+
+server.tool("get_all_parameter_filters", "List all parameter filters in the model.", {}, async () => t(await callRevit("/api/all-parameter-filters")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  FAMILY MANAGEMENT TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("load_family", "Load a family file (.rfa) into the project.", {
+  filePath: z.string().describe("Full path to the .rfa file."),
+}, async ({ filePath }) => t(await callRevit("/api/load-family", { FilePath: filePath })));
+
+server.tool("activate_family_symbol", "Activate a family symbol so it can be placed.", {
+  elementId: z.number().describe("FamilySymbol element ID."),
+}, async ({ elementId }) => t(await callRevit("/api/activate-symbol", { ElementId: elementId })));
+
+server.tool("get_family_parameters", "Get all type parameters for all types in a family.", {
+  elementId: z.number().describe("Family element ID."),
+}, async ({ elementId }) => t(await callRevit("/api/family-parameters", { ElementId: elementId })));
+
+server.tool("duplicate_family_type", "Duplicate a family type with a new name.", {
+  typeId: z.number(), newName: z.string(),
+}, async (a) => t(await callRevit("/api/duplicate-type", { TypeId: a.typeId, NewName: a.newName })));
+
+server.tool("delete_family_types", "Delete family types from the project.", {
+  elementIds: z.array(z.number()),
+}, async ({ elementIds }) => t(await callRevit("/api/delete-types", { ElementIds: elementIds })));
+
+server.tool("get_all_families_list", "Get all families with category, type count.", {}, async () => t(await callRevit("/api/all-families-list")));
+
+server.tool("get_family_types_by_family", "Get all types for a specific family.", {
+  elementId: z.number().describe("Family element ID."),
+}, async ({ elementId }) => t(await callRevit("/api/family-types-by-family", { ElementId: elementId })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  PROJECT / GLOBAL PARAMETER TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_project_parameters", "Get all project parameters with bindings.", {}, async () => t(await callRevit("/api/project-parameters")));
+
+server.tool("get_global_parameters", "Get all global parameters with values.", {}, async () => t(await callRevit("/api/global-parameters")));
+
+server.tool("set_global_parameter", "Set the value of a global parameter.", {
+  parameterId: z.number(),
+  stringValue: z.string().optional(), intValue: z.number().optional(), doubleValue: z.number().optional(),
+}, async (a) => t(await callRevit("/api/set-global-parameter", { ParameterId: a.parameterId, StringValue: a.stringValue ?? null, IntValue: a.intValue ?? null, DoubleValue: a.doubleValue ?? null })));
+
+server.tool("create_global_parameter", "Create a new global parameter.", {
+  name: z.string(), dataType: z.string().describe("string, integer, number, length, angle"), initialValue: z.string().optional(),
+}, async (a) => t(await callRevit("/api/create-global-parameter", { Name: a.name, DataType: a.dataType, InitialValue: a.initialValue ?? null })));
+
+server.tool("create_project_parameter", "Create a new project parameter bound to categories.", {
+  name: z.string(), dataType: z.string().describe("string, integer, number, yesno"),
+  categoryIds: z.array(z.number()), isInstance: z.boolean(),
+}, async (a) => t(await callRevit("/api/create-project-parameter", { Name: a.name, DataType: a.dataType, CategoryIds: a.categoryIds, IsInstance: a.isInstance })));
+
+server.tool("get_shared_parameter_file", "Get shared parameter file info and groups.", {}, async () => t(await callRevit("/api/shared-parameter-file")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  STRUCTURAL ANALYSIS TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_structural_usage", "Get structural usage and material for elements.", {
+  elementIds: z.array(z.number()),
+}, async ({ elementIds }) => t(await callRevit("/api/structural-usage", { ElementIds: elementIds })));
+
+server.tool("get_structural_framing_types", "Get all structural framing (beam) types.", {}, async () => t(await callRevit("/api/structural-framing-types")));
+server.tool("get_structural_column_types", "Get all structural column types.", {}, async () => t(await callRevit("/api/structural-column-types")));
+server.tool("get_foundation_types", "Get all foundation types.", {}, async () => t(await callRevit("/api/foundation-types")));
+
+server.tool("create_beam_system", "Create a beam system from boundary points.", {
+  curveLoopPoints: z.array(z.object({ X: z.number(), Y: z.number(), Z: z.number() })).min(3),
+  levelId: z.number().optional(), beamTypeId: z.number().optional(),
+}, async (a) => t(await callRevit("/api/create-beam-system", { CurveLoopPoints: a.curveLoopPoints, LevelId: a.levelId ?? null, BeamTypeId: a.beamTypeId ?? null })));
+
+server.tool("get_structural_members", "Get counts and IDs of beams, columns, foundations.", {}, async () => t(await callRevit("/api/structural-members")));
+server.tool("get_load_cases", "Get all load cases and load natures.", {}, async () => t(await callRevit("/api/load-cases")));
+server.tool("get_structural_connections", "Get all structural connections.", {}, async () => t(await callRevit("/api/structural-connections")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  GROUP TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_all_groups", "Get all groups in the model.", {}, async () => t(await callRevit("/api/all-groups")));
+server.tool("get_group_types", "Get all group types.", {}, async () => t(await callRevit("/api/group-types")));
+
+server.tool("create_group", "Create a group from elements.", {
+  elementIds: z.array(z.number()),
+}, async ({ elementIds }) => t(await callRevit("/api/create-group", { ElementIds: elementIds })));
+
+server.tool("ungroup_members", "Ungroup a group (returns member IDs).", {
+  elementId: z.number().describe("Group element ID."),
+}, async ({ elementId }) => t(await callRevit("/api/ungroup", { ElementId: elementId })));
+
+server.tool("get_group_members", "Get members of a group.", {
+  elementId: z.number(),
+}, async ({ elementId }) => t(await callRevit("/api/group-members", { ElementId: elementId })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  ASSEMBLY TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_all_assemblies", "Get all assemblies.", {}, async () => t(await callRevit("/api/all-assemblies")));
+
+server.tool("create_assembly", "Create an assembly from elements.", {
+  elementIds: z.array(z.number()),
+}, async ({ elementIds }) => t(await callRevit("/api/create-assembly", { ElementIds: elementIds })));
+
+server.tool("get_assembly_members", "Get members of an assembly.", {
+  elementId: z.number(),
+}, async ({ elementId }) => t(await callRevit("/api/assembly-members", { ElementId: elementId })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  DESIGN OPTION TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_design_options", "Get all design options.", {}, async () => t(await callRevit("/api/design-options")));
+
+server.tool("get_elements_in_design_option", "Get elements in a design option.", {
+  elementId: z.number().describe("Design option element ID."),
+}, async ({ elementId }) => t(await callRevit("/api/elements-in-design-option", { ElementId: elementId })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  STAIRS / RAILING TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_stair_info", "Get detailed stair info (runs, landings, riser height).", {
+  elementId: z.number(),
+}, async ({ elementId }) => t(await callRevit("/api/stair-info", { ElementId: elementId })));
+
+server.tool("get_all_stairs", "Get all stairs in the model.", {}, async () => t(await callRevit("/api/all-stairs")));
+server.tool("get_all_railings", "Get all railings in the model.", {}, async () => t(await callRevit("/api/all-railings")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  ROOF TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_roof_types", "Get all roof types.", {}, async () => t(await callRevit("/api/roof-types")));
+
+server.tool("get_roof_info", "Get roof info (type, level, area).", {
+  elementId: z.number(),
+}, async ({ elementId }) => t(await callRevit("/api/roof-info", { ElementId: elementId })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  TOPOGRAPHY TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_topography_surfaces", "Get all topography surfaces.", {}, async () => t(await callRevit("/api/topography-surfaces")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  SCOPE BOX / REFERENCE PLANE TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_scope_boxes", "Get all scope boxes.", {}, async () => t(await callRevit("/api/scope-boxes")));
+
+server.tool("assign_scope_box_to_view", "Assign a scope box to a view.", {
+  viewId: z.number(), filterId: z.number().describe("Scope box element ID."),
+}, async (a) => t(await callRevit("/api/assign-scope-box", { ViewId: a.viewId, FilterId: a.filterId })));
+
+server.tool("get_reference_planes", "Get all reference planes.", {}, async () => t(await callRevit("/api/reference-planes")));
+
+server.tool("create_reference_plane", "Create a reference plane.", {
+  bubbleEndX: z.number(), bubbleEndY: z.number(), bubbleEndZ: z.number(),
+  freeEndX: z.number(), freeEndY: z.number(), freeEndZ: z.number(),
+  name: z.string().optional(),
+}, async (a) => t(await callRevit("/api/create-reference-plane", {
+  BubbleEndX: a.bubbleEndX, BubbleEndY: a.bubbleEndY, BubbleEndZ: a.bubbleEndZ,
+  FreeEndX: a.freeEndX, FreeEndY: a.freeEndY, FreeEndZ: a.freeEndZ, Name: a.name ?? null
+})));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  SUN / RENDERING TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_sun_settings", "Get sun and shadow settings for the active view.", {}, async () => t(await callRevit("/api/sun-settings")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  MODEL AUDIT / HEALTH TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_model_health", "Get model health report (warnings, counts, file info).", {}, async () => t(await callRevit("/api/model-health")));
+server.tool("get_unused_families", "Get all families with zero placed instances.", {}, async () => t(await callRevit("/api/unused-families")));
+server.tool("get_purgeable_types", "Get types with no instances (candidates for purging).", {}, async () => t(await callRevit("/api/purgeable-types")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  SPATIAL TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_room_from_point", "Get the room at a specific XYZ point.", {
+  x: z.number(), y: z.number(), z: z.number(),
+}, async (a) => t(await callRevit("/api/room-from-point", { X: a.x, Y: a.y, Z: a.z })));
+
+server.tool("get_area_schemes", "Get all area schemes.", {}, async () => t(await callRevit("/api/area-schemes")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  FILL / LINE PATTERN TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_fill_patterns", "Get all fill patterns.", {}, async () => t(await callRevit("/api/fill-patterns")));
+server.tool("get_line_patterns", "Get all line patterns.", {}, async () => t(await callRevit("/api/line-patterns")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  SELECTION SET TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_selection_sets", "Get all saved selection filter sets.", {}, async () => t(await callRevit("/api/selection-sets")));
+
+server.tool("create_selection_set", "Create a selection set from element IDs.", {
+  name: z.string(), elementIds: z.array(z.number()).optional(),
+}, async (a) => t(await callRevit("/api/create-selection-set", { Name: a.name, ElementIds: a.elementIds ?? null })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  WORKSET EXTENSION TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("create_workset", "Create a new workset (workshared projects only).", {
+  name: z.string(),
+}, async ({ name }) => t(await callRevit("/api/create-workset", { Name: name })));
+
+server.tool("set_element_workset", "Move elements to a different workset.", {
+  elementIds: z.array(z.number()), worksetId: z.number(),
+}, async (a) => t(await callRevit("/api/set-element-workset", { ElementIds: a.elementIds, WorksetId: a.worksetId })));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  REVISION TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("create_revision", "Create a new revision.", {
+  description: z.string().optional(), issuedBy: z.string().optional(), issuedTo: z.string().optional(), revisionDate: z.string().optional(),
+}, async (a) => t(await callRevit("/api/create-revision", { Description: a.description ?? null, IssuedBy: a.issuedBy ?? null, IssuedTo: a.issuedTo ?? null, RevisionDate: a.revisionDate ?? null })));
+
+server.tool("get_revision_clouds", "Get all revision clouds.", {}, async () => t(await callRevit("/api/revision-clouds")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  LEGEND / DETAIL TOOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_legend_views", "Get all legend views.", {}, async () => t(await callRevit("/api/legend-views")));
+server.tool("get_detail_component_types", "Get all detail component family types.", {}, async () => t(await callRevit("/api/detail-component-types")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  COORDINATION / WARNINGS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+server.tool("get_all_warnings", "Get all model warnings with severity, description, and element IDs.", {}, async () => t(await callRevit("/api/all-warnings")));
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //  START SERVER
 // ═══════════════════════════════════════════════════════════════════════════════
 

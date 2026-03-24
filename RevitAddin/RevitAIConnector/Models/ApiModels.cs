@@ -430,6 +430,478 @@ namespace RevitAIConnector.Models
         public double? TagZ { get; set; }
     }
 
+    // ─── View Management Requests ────────────────────────────────────────────
+
+    public class CreateViewRequest
+    {
+        public int LevelId { get; set; }
+        public string ViewName { get; set; }
+    }
+
+    public class CreateSectionRequest
+    {
+        public double MinX { get; set; }
+        public double MinY { get; set; }
+        public double MinZ { get; set; }
+        public double MaxX { get; set; }
+        public double MaxY { get; set; }
+        public double MaxZ { get; set; }
+        public double? DirectionX { get; set; }
+        public double? DirectionY { get; set; }
+        public double? DirectionZ { get; set; }
+        public string ViewName { get; set; }
+    }
+
+    public class Create3DViewRequest
+    {
+        public bool IsPerspective { get; set; }
+        public double? EyeX { get; set; }
+        public double? EyeY { get; set; }
+        public double? EyeZ { get; set; }
+        public double? ForwardX { get; set; }
+        public double? ForwardY { get; set; }
+        public double? ForwardZ { get; set; }
+        public double? UpX { get; set; }
+        public double? UpY { get; set; }
+        public double? UpZ { get; set; }
+        public string ViewName { get; set; }
+    }
+
+    public class SimpleNameRequest
+    {
+        public string Name { get; set; }
+    }
+
+    public class DuplicateViewRequest
+    {
+        public int ViewId { get; set; }
+        public string Option { get; set; }
+        public string NewName { get; set; }
+    }
+
+    public class ViewCropBoxRequest
+    {
+        public int ViewId { get; set; }
+        public bool? Active { get; set; }
+        public bool? Visible { get; set; }
+        public double? MinX { get; set; }
+        public double? MinY { get; set; }
+        public double? MinZ { get; set; }
+        public double? MaxX { get; set; }
+        public double? MaxY { get; set; }
+        public double? MaxZ { get; set; }
+    }
+
+    public class ViewPropertiesRequest
+    {
+        public int ViewId { get; set; }
+        public int? Scale { get; set; }
+        public string DetailLevel { get; set; }
+        public int? TemplateId { get; set; }
+        public string NewName { get; set; }
+    }
+
+    public class ViewRangeRequest
+    {
+        public int ViewId { get; set; }
+        public double? TopOffset { get; set; }
+        public double? CutOffset { get; set; }
+        public double? BottomOffset { get; set; }
+        public double? ViewDepthOffset { get; set; }
+    }
+
+    public class SectionBoxRequest
+    {
+        public int ViewId { get; set; }
+        public double MinX { get; set; }
+        public double MinY { get; set; }
+        public double MinZ { get; set; }
+        public double MaxX { get; set; }
+        public double MaxY { get; set; }
+        public double MaxZ { get; set; }
+        public bool? Enabled { get; set; }
+    }
+
+    public class HideUnhideRequest
+    {
+        public List<int> ElementIds { get; set; }
+        public int? ViewId { get; set; }
+        public bool Hide { get; set; }
+    }
+
+    public class HideCategoryRequest
+    {
+        public List<int> CategoryIds { get; set; }
+        public int? ViewId { get; set; }
+        public bool Hide { get; set; }
+    }
+
+    public class SingleViewRequest
+    {
+        public int? ViewId { get; set; }
+    }
+
+    public class CalloutRequest
+    {
+        public int ParentViewId { get; set; }
+        public double MinX { get; set; }
+        public double MinY { get; set; }
+        public double MaxX { get; set; }
+        public double MaxY { get; set; }
+    }
+
+    // ─── Material Requests ────────────────────────────────────────────────────
+
+    public class SetMaterialColorRequest
+    {
+        public int MaterialId { get; set; }
+        public int? ColorR { get; set; }
+        public int? ColorG { get; set; }
+        public int? ColorB { get; set; }
+        public int? Transparency { get; set; }
+    }
+
+    public class CreateMaterialRequest
+    {
+        public string Name { get; set; }
+        public int? ColorR { get; set; }
+        public int? ColorG { get; set; }
+        public int? ColorB { get; set; }
+        public int? Transparency { get; set; }
+        public string MaterialClass { get; set; }
+    }
+
+    // ─── Phase Requests ───────────────────────────────────────────────────────
+
+    public class SetPhaseRequest
+    {
+        public List<int> ElementIds { get; set; }
+        public int? CreatedPhaseId { get; set; }
+        public int? DemolishedPhaseId { get; set; }
+    }
+
+    public class ViewPhaseRequest
+    {
+        public int ViewId { get; set; }
+        public int? PhaseId { get; set; }
+        public int? PhaseFilterId { get; set; }
+    }
+
+    // ─── MEP Requests ─────────────────────────────────────────────────────────
+
+    public class MepLineRequest
+    {
+        public double StartX { get; set; }
+        public double StartY { get; set; }
+        public double StartZ { get; set; }
+        public double EndX { get; set; }
+        public double EndY { get; set; }
+        public double EndZ { get; set; }
+        public int? TypeId { get; set; }
+        public int? LevelId { get; set; }
+        public string SystemTypeName { get; set; }
+        public double? Diameter { get; set; }
+        public double? Width { get; set; }
+        public double? Height { get; set; }
+    }
+
+    public class MepFlexRequest
+    {
+        public List<RebarPoint> Points { get; set; }
+        public int? TypeId { get; set; }
+        public int? LevelId { get; set; }
+        public string SystemTypeName { get; set; }
+    }
+
+    public class ConnectMepRequest
+    {
+        public int ElementId1 { get; set; }
+        public int ElementId2 { get; set; }
+    }
+
+    // ─── Annotation Requests ──────────────────────────────────────────────────
+
+    public class TextNoteRequest
+    {
+        public string Text { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public int? ViewId { get; set; }
+        public int? TypeId { get; set; }
+    }
+
+    public class DetailLineRequest
+    {
+        public double StartX { get; set; }
+        public double StartY { get; set; }
+        public double EndX { get; set; }
+        public double EndY { get; set; }
+        public int? ViewId { get; set; }
+        public string LineStyleName { get; set; }
+    }
+
+    public class FilledRegionRequest
+    {
+        public List<RebarPoint> Points { get; set; }
+        public int? ViewId { get; set; }
+        public int? TypeId { get; set; }
+    }
+
+    public class TagElementRequest
+    {
+        public List<int> ElementIds { get; set; }
+        public int? ViewId { get; set; }
+        public int? TagTypeId { get; set; }
+        public bool AddLeader { get; set; }
+        public double OffsetX { get; set; }
+        public double OffsetY { get; set; }
+    }
+
+    public class SpotDimensionRequest
+    {
+        public int ElementId { get; set; }
+        public int? ViewId { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
+        public double? BendX { get; set; }
+        public double? BendY { get; set; }
+        public double? EndX { get; set; }
+        public double? EndY { get; set; }
+    }
+
+    public class RevisionCloudRequest
+    {
+        public List<RebarPoint> Points { get; set; }
+        public int? ViewId { get; set; }
+        public int? RevisionId { get; set; }
+    }
+
+    public class MoveTagRequest
+    {
+        public int TagId { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public bool? HasLeader { get; set; }
+    }
+
+    // ─── Schedule Requests ────────────────────────────────────────────────────
+
+    public class CreateScheduleRequest
+    {
+        public int CategoryId { get; set; }
+        public string Name { get; set; }
+        public List<string> FieldNames { get; set; }
+    }
+
+    public class ScheduleFieldRequest
+    {
+        public int ScheduleId { get; set; }
+        public List<string> FieldNames { get; set; }
+    }
+
+    public class ScheduleFilterRequest
+    {
+        public int ScheduleId { get; set; }
+        public string FieldName { get; set; }
+        public string FilterType { get; set; }
+        public string Value { get; set; }
+    }
+
+    public class ScheduleSortRequest
+    {
+        public int ScheduleId { get; set; }
+        public string FieldName { get; set; }
+        public bool Descending { get; set; }
+    }
+
+    public class ExportScheduleRequest
+    {
+        public int ScheduleId { get; set; }
+        public string FolderPath { get; set; }
+        public string FileName { get; set; }
+    }
+
+    // ─── Export Requests ──────────────────────────────────────────────────────
+
+    public class ExportRequest
+    {
+        public List<int> ViewIds { get; set; }
+        public string FolderPath { get; set; }
+        public string FileName { get; set; }
+    }
+
+    public class ExportImageRequest
+    {
+        public int? ViewId { get; set; }
+        public string FolderPath { get; set; }
+        public string FileName { get; set; }
+        public string Format { get; set; }
+        public int? PixelSize { get; set; }
+    }
+
+    // ─── Opening Requests ─────────────────────────────────────────────────────
+
+    public class WallOpeningRequest
+    {
+        public int WallId { get; set; }
+        public double MinX { get; set; }
+        public double MinY { get; set; }
+        public double MinZ { get; set; }
+        public double MaxX { get; set; }
+        public double MaxY { get; set; }
+        public double MaxZ { get; set; }
+    }
+
+    public class FloorOpeningRequest
+    {
+        public int FloorId { get; set; }
+        public List<RebarPoint> Points { get; set; }
+    }
+
+    public class ShaftOpeningRequest
+    {
+        public int BaseLevelId { get; set; }
+        public int TopLevelId { get; set; }
+        public List<RebarPoint> Points { get; set; }
+    }
+
+    // ─── Curtain Wall Requests ────────────────────────────────────────────────
+
+    public class SetCurtainTypeRequest
+    {
+        public List<int> PanelIds { get; set; }
+        public int NewTypeId { get; set; }
+    }
+
+    public class CurtainGridLineRequest
+    {
+        public int WallId { get; set; }
+        public bool IsUDirection { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
+    }
+
+    // ─── Filter Requests ──────────────────────────────────────────────────────
+
+    public class CreateFilterRequest
+    {
+        public string FilterName { get; set; }
+        public List<int> CategoryIds { get; set; }
+        public List<FilterRuleRequest> Rules { get; set; }
+    }
+
+    public class FilterRuleRequest
+    {
+        public int ParameterId { get; set; }
+        public string RuleType { get; set; }
+        public string StringValue { get; set; }
+        public double? NumericValue { get; set; }
+    }
+
+    public class ViewFilterRequest
+    {
+        public int ViewId { get; set; }
+        public int FilterId { get; set; }
+        public bool? Visible { get; set; }
+    }
+
+    // ─── Family Management Requests ───────────────────────────────────────────
+
+    public class LoadFamilyRequest
+    {
+        public string FilePath { get; set; }
+    }
+
+    public class DuplicateTypeRequest
+    {
+        public int TypeId { get; set; }
+        public string NewName { get; set; }
+    }
+
+    // ─── Project Parameter Requests ───────────────────────────────────────────
+
+    public class SetGlobalParamRequest
+    {
+        public int ParameterId { get; set; }
+        public string StringValue { get; set; }
+        public int? IntValue { get; set; }
+        public double? DoubleValue { get; set; }
+    }
+
+    public class CreateGlobalParamRequest
+    {
+        public string Name { get; set; }
+        public string DataType { get; set; }
+        public string InitialValue { get; set; }
+    }
+
+    public class CreateProjectParamRequest
+    {
+        public string Name { get; set; }
+        public string DataType { get; set; }
+        public List<int> CategoryIds { get; set; }
+        public bool IsInstance { get; set; }
+    }
+
+    // ─── Structural Requests ──────────────────────────────────────────────────
+
+    public class BeamSystemRequest
+    {
+        public List<RebarPoint> CurveLoopPoints { get; set; }
+        public int? LevelId { get; set; }
+        public int? BeamTypeId { get; set; }
+    }
+
+    // ─── Misc Requests ────────────────────────────────────────────────────────
+
+    public class AssemblyRequest
+    {
+        public List<int> ElementIds { get; set; }
+    }
+
+    public class PointRequest
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
+    }
+
+    public class ReferencePlaneRequest
+    {
+        public double BubbleEndX { get; set; }
+        public double BubbleEndY { get; set; }
+        public double BubbleEndZ { get; set; }
+        public double FreeEndX { get; set; }
+        public double FreeEndY { get; set; }
+        public double FreeEndZ { get; set; }
+        public double? CutVectorX { get; set; }
+        public double? CutVectorY { get; set; }
+        public double? CutVectorZ { get; set; }
+        public string Name { get; set; }
+    }
+
+    public class SelectionSetRequest
+    {
+        public string Name { get; set; }
+        public List<int> ElementIds { get; set; }
+    }
+
+    public class SetWorksetRequest
+    {
+        public List<int> ElementIds { get; set; }
+        public int WorksetId { get; set; }
+    }
+
+    public class CreateRevisionRequest
+    {
+        public string Description { get; set; }
+        public string IssuedBy { get; set; }
+        public string IssuedTo { get; set; }
+        public string RevisionDate { get; set; }
+    }
+
     // ─── Info DTOs ───────────────────────────────────────────────────────────
 
     public class CategoryInfo

@@ -12,7 +12,7 @@ namespace RevitAIConnector
 
         public static int Port { get; } = 52010;
         public static string BaseUrl => $"http://localhost:{Port}/";
-        public const int ToolCount = 72;
+        public const int ToolCount = 244;
         public const string Version = "2.0.0";
 
         public Result OnStartup(UIControlledApplication application)
