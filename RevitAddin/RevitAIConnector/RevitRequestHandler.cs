@@ -199,6 +199,22 @@ namespace RevitAIConnector
                     return RebarService.SetRebarLayout(doc, body);
                 case "/api/set-rebar-cover":
                     return RebarService.SetRebarCover(doc, body);
+                case "/api/rebar-properties":
+                    return RebarService.GetRebarProperties(doc, body);
+                case "/api/rebar-geometry":
+                    return RebarService.GetRebarGeometry(doc, body);
+                case "/api/place-rebar-from-shape":
+                    return RebarService.PlaceRebarFromShape(doc, body);
+                case "/api/create-area-reinforcement":
+                    return RebarService.CreateAreaReinforcement(doc, body);
+                case "/api/create-path-reinforcement":
+                    return RebarService.CreatePathReinforcement(doc, body);
+                case "/api/set-rebar-hook":
+                    return RebarService.SetRebarHook(doc, body);
+                case "/api/move-rebar":
+                    return RebarService.MoveRebar(doc, body);
+                case "/api/tag-rebar":
+                    return RebarService.TagRebar(doc, body);
 
                 // ── Grid Extent Tools ─────────────────────────────────────
                 case "/api/grid-extents":

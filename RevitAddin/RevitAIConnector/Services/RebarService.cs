@@ -456,6 +456,387 @@ namespace RevitAIConnector.Services
             return ApiResponse.Ok(new { hostId = req.HostId, coversUpdated = true });
         }
 
+        // ─── Detailed Query Tools ────────────────────────────────────────────
+
+        public static ApiResponse GetRebarProperties(Document doc, string body)
+        {
+            var req = JsonConvert.DeserializeObject<ElementIdList>(body);
+            if (req == null || req.ElementIds == null) return ApiResponse.Fail("Invalid request.");
+
+            var results = req.ElementIds.Select(id =>
+            {
+                var rebar = doc.GetElement(new ElementId(id)) as Rebar;
+                if (rebar == null) return new { rebarId = id, error = "Not a rebar element", name = (string)null, barTypeName = (string)null, barDiameterMm = 0.0, shapeId = -1, shapeName = (string)null, rebarStyle = (string)null, hostId = -1, hostCategory = (string)null, layoutRule = (string)null, numberOfBars = 0, spacingMm = 0.0, totalLengthMm = 0.0, volumeCuMm = 0.0, hookAtStart = (string)null, hookAtEnd = (string)null, isShapeDriven = false };
+
+                var barType = doc.GetElement(rebar.GetTypeId()) as RebarBarType;
+                var shape = doc.GetElement(rebar.GetShapeId()) as RebarShape;
+                var host = doc.GetElement(rebar.GetHostId());
+
+                string layout = "Single";
+                int numBars = 1;
+                double spacingMm = 0;
+                bool shapeDriven = true;
+                try
+                {
+                    layout = rebar.LayoutRule.ToString();
+                    numBars = rebar.NumberOfBarPositions;
+                    if (rebar.LayoutRule != RebarLayoutRule.Single && numBars > 1)
+                    {
+                        var acc = rebar.GetShapeDrivenAccessor();
+                        spacingMm = Math.Round(acc.ArrayLength / Math.Max(numBars - 1, 1) * 304.8, 1);
+                    }
+                }
+                catch { shapeDriven = false; }
+
+                string hook0Name = null, hook1Name = null;
+                try
+                {
+                    var h0 = doc.GetElement(rebar.GetHookTypeId(0)) as RebarHookType;
+                    var h1 = doc.GetElement(rebar.GetHookTypeId(1)) as RebarHookType;
+                    hook0Name = h0?.Name;
+                    hook1Name = h1?.Name;
+                }
+                catch { }
+
+                return new
+                {
+                    rebarId = id,
+                    error = (string)null,
+                    name = rebar.Name,
+                    barTypeName = barType?.Name ?? "N/A",
+                    barDiameterMm = barType != null ? Math.Round(barType.BarNominalDiameter * 304.8, 1) : 0.0,
+                    shapeId = shape?.Id.IntegerValue ?? -1,
+                    shapeName = shape?.Name ?? "N/A",
+                    rebarStyle = shape?.RebarStyle.ToString() ?? "N/A",
+                    hostId = rebar.GetHostId().IntegerValue,
+                    hostCategory = host?.Category?.Name ?? "N/A",
+                    layoutRule = layout,
+                    numberOfBars = numBars,
+                    spacingMm,
+                    totalLengthMm = Math.Round(rebar.TotalLength * 304.8, 1),
+                    volumeCuMm = Math.Round(rebar.Volume * 2.832e+7, 1),
+                    hookAtStart = hook0Name,
+                    hookAtEnd = hook1Name,
+                    isShapeDriven = shapeDriven
+                };
+            }).ToList();
+
+            return ApiResponse.Ok(new { count = results.Count, rebars = results });
+        }
+
+        public static ApiResponse GetRebarGeometry(Document doc, string body)
+        {
+            var req = JsonConvert.DeserializeObject<RebarGeometryRequest>(body);
+            if (req == null) return ApiResponse.Fail("Invalid request.");
+
+            var rebar = doc.GetElement(new ElementId(req.RebarId)) as Rebar;
+            if (rebar == null) return ApiResponse.Fail("Rebar element not found.");
+
+            var barPositions = new List<object>();
+            int posCount = rebar.NumberOfBarPositions;
+            int maxPos = Math.Min(posCount, req.MaxPositions > 0 ? req.MaxPositions : 5);
+
+            for (int i = 0; i < maxPos; i++)
+            {
+                try
+                {
+                    var curves = rebar.GetCenterlineCurves(
+                        req.AdjustForSelfIntersection,
+                        req.SuppressHooks,
+                        req.SuppressBendRadius,
+                        MultiplanarOption.IncludeOnlyPlanarCurves,
+                        i);
+
+                    var segments = curves.Select(c =>
+                    {
+                        var s = c.GetEndPoint(0);
+                        var e = c.GetEndPoint(1);
+                        return new
+                        {
+                            startX = Math.Round(s.X, 4), startY = Math.Round(s.Y, 4), startZ = Math.Round(s.Z, 4),
+                            endX = Math.Round(e.X, 4), endY = Math.Round(e.Y, 4), endZ = Math.Round(e.Z, 4),
+                            lengthFt = Math.Round(c.Length, 4),
+                            isCurved = !(c is Line)
+                        };
+                    }).ToList();
+
+                    barPositions.Add(new { positionIndex = i, segmentCount = segments.Count, segments });
+                }
+                catch { }
+            }
+
+            return ApiResponse.Ok(new
+            {
+                rebarId = req.RebarId,
+                totalPositions = posCount,
+                positionsReturned = barPositions.Count,
+                barPositions
+            });
+        }
+
+        // ─── Shape-Based Placement ──────────────────────────────────────────
+
+        public static ApiResponse PlaceRebarFromShape(Document doc, string body)
+        {
+            var req = JsonConvert.DeserializeObject<RebarFromShapeRequest>(body);
+            if (req == null) return ApiResponse.Fail("Invalid request.");
+
+            var host = doc.GetElement(new ElementId(req.HostId));
+            if (host == null) return ApiResponse.Fail("Host element not found.");
+
+            var shape = doc.GetElement(new ElementId(req.ShapeId)) as RebarShape;
+            if (shape == null) return ApiResponse.Fail("Rebar shape not found.");
+
+            var barType = doc.GetElement(new ElementId(req.BarTypeId)) as RebarBarType;
+            if (barType == null) return ApiResponse.Fail("Bar type not found.");
+
+            var origin = new XYZ(req.OriginX, req.OriginY, req.OriginZ);
+            var xVec = new XYZ(req.XVecX ?? 1, req.XVecY ?? 0, req.XVecZ ?? 0).Normalize();
+            var yVec = new XYZ(req.YVecX ?? 0, req.YVecY ?? 1, req.YVecZ ?? 0).Normalize();
+
+            using (var tx = new Transaction(doc, "AI: Place Rebar From Shape"))
+            {
+                tx.Start();
+                try
+                {
+                    var rebar = Rebar.CreateFromRebarShape(doc, shape, barType, host, origin, xVec, yVec);
+                    if (rebar == null)
+                    {
+                        tx.RollBack();
+                        return ApiResponse.Fail("Could not create rebar from shape. Check shape compatibility with host.");
+                    }
+
+                    RebarHookType hook0 = req.HookTypeId0.HasValue
+                        ? doc.GetElement(new ElementId(req.HookTypeId0.Value)) as RebarHookType : null;
+                    RebarHookType hook1 = req.HookTypeId1.HasValue
+                        ? doc.GetElement(new ElementId(req.HookTypeId1.Value)) as RebarHookType : null;
+                    if (hook0 != null) rebar.SetHookTypeId(0, hook0.Id);
+                    if (hook1 != null) rebar.SetHookTypeId(1, hook1.Id);
+
+                    ApplyLayout(rebar, req.LayoutRule, req.LayoutCount, req.LayoutSpacing, req.LayoutLength);
+
+                    tx.Commit();
+                    return ApiResponse.Ok(new
+                    {
+                        rebarId = rebar.Id.IntegerValue,
+                        shapeName = shape.Name,
+                        barTypeName = barType.Name
+                    });
+                }
+                catch (Exception ex)
+                {
+                    if (tx.HasStarted()) tx.RollBack();
+                    return ApiResponse.Fail($"Shape rebar creation failed: {ex.Message}");
+                }
+            }
+        }
+
+        // ─── Area & Path Reinforcement ──────────────────────────────────────
+
+        public static ApiResponse CreateAreaReinforcement(Document doc, string body)
+        {
+            var req = JsonConvert.DeserializeObject<AreaReinforcementRequest>(body);
+            if (req == null) return ApiResponse.Fail("Invalid request.");
+
+            var host = doc.GetElement(new ElementId(req.HostId));
+            if (host == null) return ApiResponse.Fail("Host element not found.");
+
+            var majorDir = new XYZ(req.MajorDirectionX ?? 1, req.MajorDirectionY ?? 0, req.MajorDirectionZ ?? 0);
+            var barTypeId = new ElementId(req.BarTypeId);
+
+            using (var tx = new Transaction(doc, "AI: Create Area Reinforcement"))
+            {
+                tx.Start();
+                try
+                {
+                    var areaReinfType = new FilteredElementCollector(doc)
+                        .OfClass(typeof(AreaReinforcementType))
+                        .FirstOrDefault();
+                    var areaTypeId = areaReinfType?.Id ?? ElementId.InvalidElementId;
+
+                    var areaReinf = AreaReinforcement.Create(doc, host, majorDir, areaTypeId, barTypeId, ElementId.InvalidElementId);
+
+                    if (areaReinf == null)
+                    {
+                        tx.RollBack();
+                        return ApiResponse.Fail("Could not create area reinforcement. Ensure the host is a floor or wall.");
+                    }
+
+                    tx.Commit();
+                    return ApiResponse.Ok(new { areaReinforcementId = areaReinf.Id.IntegerValue });
+                }
+                catch (Exception ex)
+                {
+                    if (tx.HasStarted()) tx.RollBack();
+                    return ApiResponse.Fail($"Area reinforcement failed: {ex.Message}");
+                }
+            }
+        }
+
+        public static ApiResponse CreatePathReinforcement(Document doc, string body)
+        {
+            var req = JsonConvert.DeserializeObject<PathReinforcementRequest>(body);
+            if (req == null) return ApiResponse.Fail("Invalid request.");
+            if (req.PathPoints == null || req.PathPoints.Count < 2)
+                return ApiResponse.Fail("Need at least 2 path points.");
+
+            var host = doc.GetElement(new ElementId(req.HostId));
+            if (host == null) return ApiResponse.Fail("Host element not found.");
+
+            var curves = new List<Curve>();
+            for (int i = 0; i < req.PathPoints.Count - 1; i++)
+            {
+                var p1 = req.PathPoints[i];
+                var p2 = req.PathPoints[i + 1];
+                curves.Add(Line.CreateBound(
+                    new XYZ(p1.X, p1.Y, p1.Z),
+                    new XYZ(p2.X, p2.Y, p2.Z)));
+            }
+
+            using (var tx = new Transaction(doc, "AI: Create Path Reinforcement"))
+            {
+                tx.Start();
+                try
+                {
+                    var pathReinfType = new FilteredElementCollector(doc)
+                        .OfClass(typeof(PathReinforcementType))
+                        .FirstOrDefault();
+                    var pathTypeId = pathReinfType?.Id ?? ElementId.InvalidElementId;
+
+                    var invalid = ElementId.InvalidElementId;
+                    var pathReinf = PathReinforcement.Create(doc, host, curves, req.Flip, pathTypeId, invalid, invalid, invalid);
+                    if (pathReinf == null)
+                    {
+                        tx.RollBack();
+                        return ApiResponse.Fail("Could not create path reinforcement.");
+                    }
+
+                    tx.Commit();
+                    return ApiResponse.Ok(new { pathReinforcementId = pathReinf.Id.IntegerValue });
+                }
+                catch (Exception ex)
+                {
+                    if (tx.HasStarted()) tx.RollBack();
+                    return ApiResponse.Fail($"Path reinforcement failed: {ex.Message}");
+                }
+            }
+        }
+
+        // ─── Rebar Modification ─────────────────────────────────────────────
+
+        public static ApiResponse SetRebarHook(Document doc, string body)
+        {
+            var req = JsonConvert.DeserializeObject<SetRebarHookRequest>(body);
+            if (req == null) return ApiResponse.Fail("Invalid request.");
+
+            var rebar = doc.GetElement(new ElementId(req.RebarId)) as Rebar;
+            if (rebar == null) return ApiResponse.Fail("Rebar not found.");
+
+            using (var tx = new Transaction(doc, "AI: Set Rebar Hook"))
+            {
+                tx.Start();
+                try
+                {
+                    var hookId = req.HookTypeId.HasValue
+                        ? new ElementId(req.HookTypeId.Value) : ElementId.InvalidElementId;
+                    rebar.SetHookTypeId(req.End, hookId);
+                    tx.Commit();
+
+                    var hookName = req.HookTypeId.HasValue
+                        ? (doc.GetElement(hookId) as RebarHookType)?.Name ?? "Unknown" : "None";
+                    return ApiResponse.Ok(new { rebarId = req.RebarId, end = req.End, hookType = hookName });
+                }
+                catch (Exception ex)
+                {
+                    if (tx.HasStarted()) tx.RollBack();
+                    return ApiResponse.Fail($"Set hook failed: {ex.Message}");
+                }
+            }
+        }
+
+        public static ApiResponse MoveRebar(Document doc, string body)
+        {
+            var req = JsonConvert.DeserializeObject<MoveRebarRequest>(body);
+            if (req == null) return ApiResponse.Fail("Invalid request.");
+
+            var rebar = doc.GetElement(new ElementId(req.RebarId)) as Rebar;
+            if (rebar == null) return ApiResponse.Fail("Rebar not found.");
+
+            var offset = new XYZ(req.OffsetX, req.OffsetY, req.OffsetZ);
+
+            using (var tx = new Transaction(doc, "AI: Move Rebar"))
+            {
+                tx.Start();
+                ElementTransformUtils.MoveElement(doc, rebar.Id, offset);
+                tx.Commit();
+            }
+
+            return ApiResponse.Ok(new
+            {
+                rebarId = req.RebarId,
+                offsetX = req.OffsetX, offsetY = req.OffsetY, offsetZ = req.OffsetZ
+            });
+        }
+
+        public static ApiResponse TagRebar(Document doc, string body)
+        {
+            var req = JsonConvert.DeserializeObject<TagRebarRequest>(body);
+            if (req == null) return ApiResponse.Fail("Invalid request.");
+
+            var rebar = doc.GetElement(new ElementId(req.RebarId)) as Rebar;
+            if (rebar == null) return ApiResponse.Fail("Rebar not found.");
+
+            View view = req.ViewId.HasValue
+                ? doc.GetElement(new ElementId(req.ViewId.Value)) as View
+                : doc.ActiveView;
+            if (view == null) return ApiResponse.Fail("View not found.");
+
+            using (var tx = new Transaction(doc, "AI: Tag Rebar"))
+            {
+                tx.Start();
+                try
+                {
+                    var tagPosition = new XYZ(req.TagX ?? 0, req.TagY ?? 0, req.TagZ ?? 0);
+                    var reference = new Reference(rebar);
+
+                    ElementId tagTypeId = ElementId.InvalidElementId;
+                    if (req.TagTypeId.HasValue)
+                        tagTypeId = new ElementId(req.TagTypeId.Value);
+                    else
+                    {
+                        var defaultTag = new FilteredElementCollector(doc)
+                            .OfClass(typeof(FamilySymbol))
+                            .OfCategory(BuiltInCategory.OST_RebarTags)
+                            .FirstOrDefault();
+                        if (defaultTag != null) tagTypeId = defaultTag.Id;
+                    }
+
+                    if (tagTypeId == ElementId.InvalidElementId)
+                    {
+                        tx.RollBack();
+                        return ApiResponse.Fail("No rebar tag type found in the model.");
+                    }
+
+                    var tag = IndependentTag.Create(
+                        doc, view.Id, reference, req.AddLeader,
+                        TagMode.TM_ADDBY_CATEGORY,
+                        TagOrientation.Horizontal,
+                        tagPosition);
+
+                    if (tag != null && tagTypeId != ElementId.InvalidElementId)
+                        tag.ChangeTypeId(tagTypeId);
+
+                    tx.Commit();
+                    return ApiResponse.Ok(new { tagId = tag?.Id.IntegerValue ?? -1, rebarId = req.RebarId });
+                }
+                catch (Exception ex)
+                {
+                    if (tx.HasStarted()) tx.RollBack();
+                    return ApiResponse.Fail($"Rebar tagging failed: {ex.Message}");
+                }
+            }
+        }
+
         // ─── Helpers ────────────────────────────────────────────────────────
 
         private static void ApplyLayout(Rebar rebar, string rule, int? count, double? spacing, double? arrayLength)

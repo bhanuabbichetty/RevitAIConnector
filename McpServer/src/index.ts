@@ -659,6 +659,158 @@ server.tool(
     }))
 );
 
+server.tool(
+  "get_rebar_properties",
+  "Get detailed rebar properties: shape, bar type, diameter, layout rule, spacing, total length, hooks, host. Use after placement to verify.",
+  { rebarIds: z.array(z.number()).describe("Rebar element IDs.") },
+  async ({ rebarIds }) => t(await callRevit("/api/rebar-properties", { ElementIds: rebarIds }))
+);
+
+server.tool(
+  "get_rebar_geometry",
+  "Get rebar centerline curves (XYZ points) for visualization/verification. Returns segments per bar position.",
+  {
+    rebarId: z.number().describe("Rebar element ID."),
+    suppressHooks: z.boolean().optional().describe("Omit hook curves (default false)."),
+    suppressBendRadius: z.boolean().optional().describe("Sharp corners instead of bends (default false)."),
+    adjustForSelfIntersection: z.boolean().optional().describe("Adjust overlapping curves (default false)."),
+    maxPositions: z.number().optional().describe("Max bar positions to return (default 5)."),
+  },
+  async ({ rebarId, suppressHooks, suppressBendRadius, adjustForSelfIntersection, maxPositions }) =>
+    t(await callRevit("/api/rebar-geometry", {
+      RebarId: rebarId,
+      SuppressHooks: suppressHooks ?? false,
+      SuppressBendRadius: suppressBendRadius ?? false,
+      AdjustForSelfIntersection: adjustForSelfIntersection ?? false,
+      MaxPositions: maxPositions ?? 5,
+    }))
+);
+
+server.tool(
+  "place_rebar_from_shape",
+  "Place rebar using a predefined RebarShape (from get_rebar_shapes). Position with origin + direction vectors. Optionally set distribution layout. Best for standard shapes like stirrups, L-bars, U-bars.",
+  {
+    hostId: z.number().describe("Host element ID (beam/column/wall/floor)."),
+    shapeId: z.number().describe("RebarShape ID from get_rebar_shapes."),
+    barTypeId: z.number().describe("RebarBarType ID from get_rebar_bar_types."),
+    originX: z.number().describe("Origin X in feet."),
+    originY: z.number().describe("Origin Y in feet."),
+    originZ: z.number().describe("Origin Z in feet."),
+    xVecX: z.number().optional().describe("X-direction vector X (default 1)."),
+    xVecY: z.number().optional().describe("X-direction vector Y (default 0)."),
+    xVecZ: z.number().optional().describe("X-direction vector Z (default 0)."),
+    yVecX: z.number().optional().describe("Y-direction vector X (default 0)."),
+    yVecY: z.number().optional().describe("Y-direction vector Y (default 1)."),
+    yVecZ: z.number().optional().describe("Y-direction vector Z (default 0)."),
+    hookTypeId0: z.number().optional().describe("Start hook type ID."),
+    hookTypeId1: z.number().optional().describe("End hook type ID."),
+    layoutRule: z.enum(["Single", "FixedNumber", "MaxSpacing", "MinClearSpacing", "NumberWithSpacing"]).optional(),
+    layoutCount: z.number().optional(),
+    layoutSpacing: z.number().optional().describe("Spacing in feet."),
+    layoutLength: z.number().optional().describe("Array length in feet."),
+  },
+  async (args) =>
+    t(await callRevit("/api/place-rebar-from-shape", {
+      HostId: args.hostId, ShapeId: args.shapeId, BarTypeId: args.barTypeId,
+      OriginX: args.originX, OriginY: args.originY, OriginZ: args.originZ,
+      XVecX: args.xVecX ?? null, XVecY: args.xVecY ?? null, XVecZ: args.xVecZ ?? null,
+      YVecX: args.yVecX ?? null, YVecY: args.yVecY ?? null, YVecZ: args.yVecZ ?? null,
+      HookTypeId0: args.hookTypeId0 ?? null, HookTypeId1: args.hookTypeId1 ?? null,
+      LayoutRule: args.layoutRule ?? null, LayoutCount: args.layoutCount ?? null,
+      LayoutSpacing: args.layoutSpacing ?? null, LayoutLength: args.layoutLength ?? null,
+    }))
+);
+
+server.tool(
+  "create_area_reinforcement",
+  "Create area reinforcement (mesh-like rebar) on a slab or wall. Define boundary polygon and major bar direction.",
+  {
+    hostId: z.number().describe("Host floor/wall element ID."),
+    barTypeId: z.number().describe("RebarBarType ID."),
+    boundaryPoints: z.array(z.object({
+      x: z.number(), y: z.number(), z: z.number()
+    })).describe("Boundary polygon points in feet (min 3, closed automatically)."),
+    majorDirectionX: z.number().optional().describe("Major rebar direction X (default 1)."),
+    majorDirectionY: z.number().optional().describe("Major rebar direction Y (default 0)."),
+    majorDirectionZ: z.number().optional().describe("Major rebar direction Z (default 0)."),
+  },
+  async (args) =>
+    t(await callRevit("/api/create-area-reinforcement", {
+      HostId: args.hostId, BarTypeId: args.barTypeId,
+      BoundaryPoints: args.boundaryPoints.map(p => ({ X: p.x, Y: p.y, Z: p.z })),
+      MajorDirectionX: args.majorDirectionX ?? null,
+      MajorDirectionY: args.majorDirectionY ?? null,
+      MajorDirectionZ: args.majorDirectionZ ?? null,
+    }))
+);
+
+server.tool(
+  "create_path_reinforcement",
+  "Create path reinforcement along a line on a slab or wall (e.g. edge reinforcement, trim bars).",
+  {
+    hostId: z.number().describe("Host floor/wall element ID."),
+    pathPoints: z.array(z.object({
+      x: z.number(), y: z.number(), z: z.number()
+    })).describe("Path points in feet (min 2)."),
+    flip: z.boolean().optional().describe("Flip reinforcement side (default false)."),
+  },
+  async ({ hostId, pathPoints, flip }) =>
+    t(await callRevit("/api/create-path-reinforcement", {
+      HostId: hostId,
+      PathPoints: pathPoints.map(p => ({ X: p.x, Y: p.y, Z: p.z })),
+      Flip: flip ?? false,
+    }))
+);
+
+server.tool(
+  "set_rebar_hook",
+  "Change or remove the hook type at either end of a rebar bar.",
+  {
+    rebarId: z.number().describe("Rebar element ID."),
+    end: z.number().describe("0 for start end, 1 for far end."),
+    hookTypeId: z.number().optional().describe("Hook type ID, or omit to remove hook."),
+  },
+  async ({ rebarId, end, hookTypeId }) =>
+    t(await callRevit("/api/set-rebar-hook", {
+      RebarId: rebarId, End: end, HookTypeId: hookTypeId ?? null,
+    }))
+);
+
+server.tool(
+  "move_rebar",
+  "Move/translate a rebar element by an offset vector (in feet).",
+  {
+    rebarId: z.number().describe("Rebar element ID."),
+    offsetX: z.number().describe("Offset X in feet."),
+    offsetY: z.number().describe("Offset Y in feet."),
+    offsetZ: z.number().describe("Offset Z in feet."),
+  },
+  async ({ rebarId, offsetX, offsetY, offsetZ }) =>
+    t(await callRevit("/api/move-rebar", {
+      RebarId: rebarId, OffsetX: offsetX, OffsetY: offsetY, OffsetZ: offsetZ,
+    }))
+);
+
+server.tool(
+  "tag_rebar",
+  "Tag a rebar element in a view with an annotation tag. Optionally specify tag type and position.",
+  {
+    rebarId: z.number().describe("Rebar element ID to tag."),
+    viewId: z.number().optional().describe("View ID. Defaults to active view."),
+    tagTypeId: z.number().optional().describe("Tag family type ID. Uses default rebar tag if omitted."),
+    addLeader: z.boolean().optional().describe("Add leader line (default false)."),
+    tagX: z.number().optional().describe("Tag position X in feet."),
+    tagY: z.number().optional().describe("Tag position Y in feet."),
+    tagZ: z.number().optional().describe("Tag position Z in feet."),
+  },
+  async ({ rebarId, viewId, tagTypeId, addLeader, tagX, tagY, tagZ }) =>
+    t(await callRevit("/api/tag-rebar", {
+      RebarId: rebarId, ViewId: viewId ?? null, TagTypeId: tagTypeId ?? null,
+      AddLeader: addLeader ?? false,
+      TagX: tagX ?? null, TagY: tagY ?? null, TagZ: tagZ ?? null,
+    }))
+);
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  GRID EXTENT TOOLS (2D + 3D)
 // ═══════════════════════════════════════════════════════════════════════════════

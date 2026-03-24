@@ -354,6 +354,82 @@ namespace RevitAIConnector.Models
         public int? OtherCoverTypeId { get; set; }
     }
 
+    // ─── Advanced Rebar Requests ─────────────────────────────────────────────
+
+    public class RebarGeometryRequest
+    {
+        public int RebarId { get; set; }
+        public bool AdjustForSelfIntersection { get; set; }
+        public bool SuppressHooks { get; set; }
+        public bool SuppressBendRadius { get; set; }
+        public int MaxPositions { get; set; }
+    }
+
+    public class RebarFromShapeRequest
+    {
+        public int HostId { get; set; }
+        public int ShapeId { get; set; }
+        public int BarTypeId { get; set; }
+        public double OriginX { get; set; }
+        public double OriginY { get; set; }
+        public double OriginZ { get; set; }
+        public double? XVecX { get; set; }
+        public double? XVecY { get; set; }
+        public double? XVecZ { get; set; }
+        public double? YVecX { get; set; }
+        public double? YVecY { get; set; }
+        public double? YVecZ { get; set; }
+        public int? HookTypeId0 { get; set; }
+        public int? HookTypeId1 { get; set; }
+        public string LayoutRule { get; set; }
+        public int? LayoutCount { get; set; }
+        public double? LayoutSpacing { get; set; }
+        public double? LayoutLength { get; set; }
+    }
+
+    public class AreaReinforcementRequest
+    {
+        public int HostId { get; set; }
+        public int BarTypeId { get; set; }
+        public List<RebarPoint> BoundaryPoints { get; set; }
+        public double? MajorDirectionX { get; set; }
+        public double? MajorDirectionY { get; set; }
+        public double? MajorDirectionZ { get; set; }
+    }
+
+    public class PathReinforcementRequest
+    {
+        public int HostId { get; set; }
+        public List<RebarPoint> PathPoints { get; set; }
+        public bool Flip { get; set; }
+    }
+
+    public class SetRebarHookRequest
+    {
+        public int RebarId { get; set; }
+        public int End { get; set; }
+        public int? HookTypeId { get; set; }
+    }
+
+    public class MoveRebarRequest
+    {
+        public int RebarId { get; set; }
+        public double OffsetX { get; set; }
+        public double OffsetY { get; set; }
+        public double OffsetZ { get; set; }
+    }
+
+    public class TagRebarRequest
+    {
+        public int RebarId { get; set; }
+        public int? ViewId { get; set; }
+        public int? TagTypeId { get; set; }
+        public bool AddLeader { get; set; }
+        public double? TagX { get; set; }
+        public double? TagY { get; set; }
+        public double? TagZ { get; set; }
+    }
+
     // ─── Info DTOs ───────────────────────────────────────────────────────────
 
     public class CategoryInfo
