@@ -46,7 +46,13 @@ namespace RevitAIConnector
             {
                 // ── Health ──────────────────────────────────────────────────
                 case "/api/ping":
-                    return ApiResponse.Ok(new { status = "connected", document = doc.Title });
+                    return ApiResponse.Ok(new
+                    {
+                        status = "connected",
+                        document = doc.Title,
+                        addinVersion = App.Version,
+                        mcpToolCount = McpToolCount.Value
+                    });
 
                 // ── Category ────────────────────────────────────────────────
                 case "/api/categories":
@@ -59,6 +65,10 @@ namespace RevitAIConnector
                 // ── Element Read ────────────────────────────────────────────
                 case "/api/elements-by-category":
                     return ElementService.GetElementsByCategory(doc, body);
+                case "/api/elements-by-category-and-level":
+                    return ElementService.GetElementsByCategoryAndLevel(doc, body);
+                case "/api/elements-by-category-active-plan-level":
+                    return ElementService.GetElementsByCategoryOnActivePlanLevel(doc, body);
                 case "/api/element-types":
                     return ElementService.GetElementTypes(doc, body);
                 case "/api/element-location":
@@ -143,6 +153,8 @@ namespace RevitAIConnector
                     return ViewService.GetProjectInfo(doc);
                 case "/api/active-view":
                     return ViewService.GetActiveView(doc);
+                case "/api/active-view-associated-level":
+                    return ViewService.GetActiveViewAssociatedLevel(doc);
                 case "/api/warnings":
                     return ViewService.GetWarnings(doc);
                 case "/api/project-units":
@@ -327,6 +339,8 @@ namespace RevitAIConnector
                     return ViewManagementService.GetViewFamilyTypes(doc);
                 case "/api/create-callout":
                     return ViewManagementService.CreateCallout(doc, body);
+                case "/api/set-view-workset-visibility":
+                    return ViewManagementService.SetViewWorksetVisibility(doc, body);
 
                 // ── Materials ───────────────────────────────────────────
                 case "/api/all-materials":
@@ -430,6 +444,7 @@ namespace RevitAIConnector
                 case "/api/export-ifc":
                     return ExportService.ExportToIfc(doc, body);
                 case "/api/export-image":
+                case "/api/render-view-image":
                     return ExportService.ExportViewImage(doc, body);
                 case "/api/export-pdf":
                     return ExportService.ExportToPdf(doc, body);
@@ -441,8 +456,14 @@ namespace RevitAIConnector
                 // ── Openings ────────────────────────────────────────────
                 case "/api/create-wall-opening":
                     return OpeningService.CreateWallOpening(doc, body);
+                case "/api/place-wall-hosted-family":
+                    return OpeningService.PlaceWallHostedFamily(doc, body);
                 case "/api/create-floor-opening":
                     return OpeningService.CreateFloorOpening(doc, body);
+                case "/api/slab-edge-types":
+                    return SlabEdgeService.GetSlabEdgeTypes(doc);
+                case "/api/place-slab-edges-on-floor":
+                    return SlabEdgeService.PlaceSlabEdgesOnFloor(doc, body);
                 case "/api/create-shaft-opening":
                     return OpeningService.CreateShaftOpening(doc, body);
                 case "/api/openings-in-host":

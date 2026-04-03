@@ -5,7 +5,7 @@ import { callRevit } from "./revit-client.js";
 
 const server = new McpServer({
   name: "rvt-ai",
-  version: "2.0.0",
+  version: "2.0.3",
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -382,6 +382,34 @@ server.tool(
   "Get the currently active view (name, type, scale, ID).",
   {},
   async () => t(await callRevit("/api/active-view"))
+);
+
+server.tool(
+  "get_active_view_associated_level",
+  "When the active view is a floor/ceiling plan, get its associated level (ViewPlan.GenLevel) — e.g. FIRST S.S.L. id when that plan is active. Use this to scope door/wall edits to FF SSL instead of GF S.S.L.",
+  {},
+  async () => t(await callRevit("/api/active-view-associated-level"))
+);
+
+server.tool(
+  "get_elements_by_category_on_level",
+  "Get element IDs for a category limited to a specific level (doors, walls, rooms, etc.). Use with get_active_view_associated_level when the plan is FIRST S.S.L.",
+  {
+    categoryId: z.number().describe("BuiltIn category id, e.g. Doors -2000023, Walls -2000011."),
+    levelId: z.number().describe("Level element ID from get_all_levels or get_active_view_associated_level."),
+  },
+  async ({ categoryId, levelId }) =>
+    t(await callRevit("/api/elements-by-category-and-level", { CategoryId: categoryId, LevelId: levelId }))
+);
+
+server.tool(
+  "get_elements_by_category_on_active_plan_level",
+  "Get element IDs for a category on the active floor/ceiling plan's associated level only (e.g. only doors on FIRST S.S.L. when that plan is active — excludes GF S.S.L.).",
+  {
+    categoryId: z.number().describe("BuiltIn category id, e.g. Doors -2000023."),
+  },
+  async ({ categoryId }) =>
+    t(await callRevit("/api/elements-by-category-active-plan-level", { CategoryId: categoryId }))
 );
 
 server.tool(
@@ -1228,21 +1256,25 @@ server.tool(
 server.tool("create_floor_plan", "Create a new floor plan view for a level.", {
   levelId: z.number().describe("Level element ID."),
   viewName: z.string().optional().describe("Optional name for the new view."),
-}, async ({ levelId, viewName }) => t(await callRevit("/api/create-floor-plan", { LevelId: levelId, ViewName: viewName ?? null })));
+  visibleWorksetIds: z.array(z.number()).optional().describe("Workshared only: show only these user worksets in the new view; all other user worksets hidden (V/G → Worksets)."),
+}, async ({ levelId, viewName, visibleWorksetIds }) => t(await callRevit("/api/create-floor-plan", { LevelId: levelId, ViewName: viewName ?? null, VisibleWorksetIds: visibleWorksetIds ?? null })));
 
 server.tool("create_ceiling_plan", "Create a new ceiling plan view for a level.", {
   levelId: z.number().describe("Level element ID."),
   viewName: z.string().optional().describe("Optional name for the new view."),
-}, async ({ levelId, viewName }) => t(await callRevit("/api/create-ceiling-plan", { LevelId: levelId, ViewName: viewName ?? null })));
+  visibleWorksetIds: z.array(z.number()).optional().describe("Workshared only: isolate to these user worksets (others hidden per view)."),
+}, async ({ levelId, viewName, visibleWorksetIds }) => t(await callRevit("/api/create-ceiling-plan", { LevelId: levelId, ViewName: viewName ?? null, VisibleWorksetIds: visibleWorksetIds ?? null })));
 
 server.tool("create_section_view", "Create a section view with a bounding box.", {
   minX: z.number(), minY: z.number(), minZ: z.number(),
   maxX: z.number(), maxY: z.number(), maxZ: z.number(),
   directionX: z.number().optional(), directionY: z.number().optional(), directionZ: z.number().optional(),
   viewName: z.string().optional(),
+  visibleWorksetIds: z.array(z.number()).optional().describe("Workshared only: isolate listed user worksets per view."),
 }, async (args) => t(await callRevit("/api/create-section", {
   MinX: args.minX, MinY: args.minY, MinZ: args.minZ, MaxX: args.maxX, MaxY: args.maxY, MaxZ: args.maxZ,
-  DirectionX: args.directionX ?? null, DirectionY: args.directionY ?? null, DirectionZ: args.directionZ ?? null, ViewName: args.viewName ?? null
+  DirectionX: args.directionX ?? null, DirectionY: args.directionY ?? null, DirectionZ: args.directionZ ?? null, ViewName: args.viewName ?? null,
+  VisibleWorksetIds: args.visibleWorksetIds ?? null,
 })));
 
 server.tool("create_3d_view", "Create a 3D isometric or perspective view.", {
@@ -1251,22 +1283,44 @@ server.tool("create_3d_view", "Create a 3D isometric or perspective view.", {
   forwardX: z.number().optional(), forwardY: z.number().optional(), forwardZ: z.number().optional(),
   upX: z.number().optional(), upY: z.number().optional(), upZ: z.number().optional(),
   viewName: z.string().optional(),
+  visibleWorksetIds: z.array(z.number()).optional().describe("Workshared only: isolate listed user worksets per view."),
 }, async (args) => t(await callRevit("/api/create-3d-view", {
   IsPerspective: args.isPerspective ?? false,
   EyeX: args.eyeX ?? null, EyeY: args.eyeY ?? null, EyeZ: args.eyeZ ?? null,
   ForwardX: args.forwardX ?? null, ForwardY: args.forwardY ?? null, ForwardZ: args.forwardZ ?? null,
-  UpX: args.upX ?? null, UpY: args.upY ?? null, UpZ: args.upZ ?? null, ViewName: args.viewName ?? null
+  UpX: args.upX ?? null, UpY: args.upY ?? null, UpZ: args.upZ ?? null, ViewName: args.viewName ?? null,
+  VisibleWorksetIds: args.visibleWorksetIds ?? null,
 })));
 
 server.tool("create_drafting_view", "Create a new drafting view.", {
   name: z.string().optional().describe("Name for the drafting view."),
-}, async ({ name }) => t(await callRevit("/api/create-drafting-view", { Name: name ?? null })));
+  visibleWorksetIds: z.array(z.number()).optional().describe("Workshared only: isolate listed user worksets per view."),
+}, async ({ name, visibleWorksetIds }) => t(await callRevit("/api/create-drafting-view", { Name: name ?? null, VisibleWorksetIds: visibleWorksetIds ?? null })));
 
 server.tool("duplicate_view", "Duplicate a view (Duplicate, WithDetailing, or AsDependent).", {
   viewId: z.number().describe("View to duplicate."),
   option: z.enum(["Duplicate", "WithDetailing", "AsDependent"]).optional(),
   newName: z.string().optional(),
-}, async ({ viewId, option, newName }) => t(await callRevit("/api/duplicate-view", { ViewId: viewId, Option: option ?? "Duplicate", NewName: newName ?? null })));
+  visibleWorksetIds: z.array(z.number()).optional().describe("Workshared only: on the new view, show only these user worksets."),
+}, async ({ viewId, option, newName, visibleWorksetIds }) => t(await callRevit("/api/duplicate-view", { ViewId: viewId, Option: option ?? "Duplicate", NewName: newName ?? null, VisibleWorksetIds: visibleWorksetIds ?? null })));
+
+server.tool(
+  "set_view_workset_visibility",
+  "Set per-view workset visibility (Visibility/Graphics → Worksets). Requires a workshared model. Default: visibleWorksetIds stay Visible; every other user workset is Hidden.",
+  {
+    viewId: z.number(),
+    visibleWorksetIds: z.array(z.number()).describe("Workset IDs that should remain visible."),
+    hideUnlistedWorksets: z.boolean().optional().describe("Default true. If false, only the listed IDs are set to Visible; other worksets keep their current per-view state."),
+  },
+  async (a) =>
+    t(
+      await callRevit("/api/set-view-workset-visibility", {
+        ViewId: a.viewId,
+        VisibleWorksetIds: a.visibleWorksetIds,
+        HideUnlistedWorksets: a.hideUnlistedWorksets ?? null,
+      })
+    )
+);
 
 server.tool("set_view_crop_box", "Set crop box for a view.", {
   viewId: z.number(),
@@ -1565,13 +1619,41 @@ server.tool("export_to_ifc", "Export model to IFC format.", {
   folderPath: z.string().optional(), fileName: z.string().optional(),
 }, async (a) => t(await callRevit("/api/export-ifc", { FolderPath: a.folderPath ?? null, FileName: a.fileName ?? null })));
 
-server.tool("export_view_image", "Export a view as an image (PNG, JPG, BMP, TIFF).", {
+server.tool("export_view_image", "Export a view as an image (PNG, JPG, BMP, TIFF). Optional resolution, fit, zoom, and displayStyle (changes the view persistently).", {
   viewId: z.number().optional(), folderPath: z.string().optional(), fileName: z.string().optional(),
   format: z.enum(["PNG", "JPG", "BMP", "TIFF"]).optional(), pixelSize: z.number().optional(),
+  imageResolution: z.enum(["DPI_72", "DPI_150", "DPI_300", "DPI_600"]).optional(),
+  fitDirection: z.enum(["Horizontal", "Vertical"]).optional(),
+  zoomType: z.enum(["FitToPage", "FitToPageByDirection", "Zoom"]).optional(),
+  displayStyle: z.string().optional().describe("Optional: e.g. Realistic, Shaded, HLR — set on the view before export (persists)."),
 }, async (a) => t(await callRevit("/api/export-image", {
   ViewId: a.viewId ?? null, FolderPath: a.folderPath ?? null, FileName: a.fileName ?? null,
-  Format: a.format ?? "PNG", PixelSize: a.pixelSize ?? null
+  Format: a.format ?? "PNG", PixelSize: a.pixelSize ?? null,
+  ImageResolution: a.imageResolution ?? null, FitDirection: a.fitDirection ?? null, ZoomType: a.zoomType ?? null,
+  DisplayStyle: a.displayStyle ?? null,
 })));
+
+server.tool(
+  "render_view_image",
+  "Export a presentation-quality raster image: DPI, fit, zoom, optional display style (e.g. Realistic). Uses Revit image export (not Autodesk cloud rendering). Same backend as export_view_image.",
+  {
+    viewId: z.number().optional(),
+    folderPath: z.string().optional(),
+    fileName: z.string().optional(),
+    format: z.enum(["PNG", "JPG", "BMP", "TIFF"]).optional(),
+    pixelSize: z.number().optional().describe("Use with zoomType Zoom."),
+    imageResolution: z.enum(["DPI_72", "DPI_150", "DPI_300", "DPI_600"]).optional(),
+    fitDirection: z.enum(["Horizontal", "Vertical"]).optional(),
+    zoomType: z.enum(["FitToPage", "FitToPageByDirection", "Zoom"]).optional(),
+    displayStyle: z.string().optional().describe("e.g. Realistic, Shaded, ConsistentColors — applied to the view before export (persists)."),
+  },
+  async (a) => t(await callRevit("/api/render-view-image", {
+    ViewId: a.viewId ?? null, FolderPath: a.folderPath ?? null, FileName: a.fileName ?? null,
+    Format: a.format ?? "PNG", PixelSize: a.pixelSize ?? null,
+    ImageResolution: a.imageResolution ?? null, FitDirection: a.fitDirection ?? null, ZoomType: a.zoomType ?? null,
+    DisplayStyle: a.displayStyle ?? null,
+  }))
+);
 
 server.tool("export_to_pdf", "Export views/sheets to PDF.", {
   viewIds: z.array(z.number()).optional(), folderPath: z.string().optional(), fileName: z.string().optional(),
@@ -1587,13 +1669,138 @@ server.tool("get_print_settings", "Get printer name and print settings.", {}, as
 //  OPENING TOOLS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-server.tool("create_wall_opening", "Create a rectangular opening in a wall.", {
-  wallId: z.number(), minX: z.number(), minY: z.number(), minZ: z.number(), maxX: z.number(), maxY: z.number(), maxZ: z.number(),
-}, async (a) => t(await callRevit("/api/create-wall-opening", a)));
+server.tool(
+  "create_wall_opening",
+  "Rectangular void opening in a basic/stacked wall (Revit Opening element). Corners must lie in the wall plane — world-axis min/max boxes often fail for angled walls. Prefer centerX/Y/Z + openingWidth (along wall) + openingHeight (vertical); or compute corners in the wall plane. Not for curtain walls.",
+  {
+    wallId: z.number(),
+    minX: z.number().optional().describe("Ignore if using center + openingWidth/Height."),
+    minY: z.number().optional(),
+    minZ: z.number().optional(),
+    maxX: z.number().optional(),
+    maxY: z.number().optional(),
+    maxZ: z.number().optional(),
+    centerX: z.number().optional().describe("Opening center (feet, model). Use with openingWidth + openingHeight."),
+    centerY: z.number().optional(),
+    centerZ: z.number().optional(),
+    openingWidth: z.number().optional().describe("Width along wall centerline (feet)."),
+    openingHeight: z.number().optional().describe("Vertical height (feet)."),
+  },
+  async (a) => {
+    const useCenter =
+      a.openingWidth != null &&
+      a.openingHeight != null &&
+      a.centerX != null &&
+      a.centerY != null &&
+      a.centerZ != null;
+    if (!useCenter) {
+      if (
+        a.minX == null ||
+        a.minY == null ||
+        a.minZ == null ||
+        a.maxX == null ||
+        a.maxY == null ||
+        a.maxZ == null
+      ) {
+        throw new Error(
+          "create_wall_opening: pass either all of minX..maxZ (diagonal corners in wall plane, feet) OR centerX/Y/Z with openingWidth and openingHeight."
+        );
+      }
+    }
+    const body = useCenter
+      ? {
+          WallId: a.wallId,
+          OpeningWidth: a.openingWidth,
+          OpeningHeight: a.openingHeight,
+          CenterX: a.centerX,
+          CenterY: a.centerY,
+          CenterZ: a.centerZ,
+          MinX: 0,
+          MinY: 0,
+          MinZ: 0,
+          MaxX: 0,
+          MaxY: 0,
+          MaxZ: 0,
+        }
+      : {
+          WallId: a.wallId,
+          MinX: a.minX as number,
+          MinY: a.minY as number,
+          MinZ: a.minZ as number,
+          MaxX: a.maxX as number,
+          MaxY: a.maxY as number,
+          MaxZ: a.maxZ as number,
+        };
+    return t(await callRevit("/api/create-wall-opening", body));
+  }
+);
+
+server.tool(
+  "place_wall_hosted_family",
+  "Place a wall-hosted door/window on a basic or stacked Wall (not curtain). Insertion XY is snapped to the wall centerline; Z is kept. Level defaults to the wall base constraint — pass levelId from get_active_view_associated_level (e.g. FF SSL) if the instance should schedule on that level.",
+  {
+    wallId: z.number().describe("Host wall element ID (basic/stacked wall)."),
+    familySymbolId: z.number().describe("FamilySymbol (type) ID of the door/window."),
+    x: z.number().describe("Insertion point X in feet (model coordinates)."),
+    y: z.number().describe("Insertion point Y in feet."),
+    z: z.number().describe("Insertion point Z in feet (sill height is typical)."),
+    levelId: z.number().optional().describe("Optional: associated level id for the active plan (e.g. FIRST S.S.L.) so the door reports on that level."),
+  },
+  async (a) =>
+    t(
+      await callRevit("/api/place-wall-hosted-family", {
+        WallId: a.wallId,
+        FamilySymbolId: a.familySymbolId,
+        X: a.x,
+        Y: a.y,
+        Z: a.z,
+        LevelId: a.levelId ?? null,
+      })
+    )
+);
 
 server.tool("create_floor_opening", "Create an opening in a floor from boundary points.", {
   floorId: z.number(), points: z.array(z.object({ X: z.number(), Y: z.number(), Z: z.number() })).min(3),
 }, async (a) => t(await callRevit("/api/create-floor-opening", { FloorId: a.floorId, Points: a.points })));
+
+server.tool(
+  "get_slab_edge_types",
+  "List SlabEdgeType ids and names in the project. Use slabEdgeTypeId with place_slab_edges_on_floor.",
+  {},
+  async () => t(await callRevit("/api/slab-edge-types"))
+);
+
+server.tool(
+  "place_slab_edges_on_floor",
+  "Place slab edge(s) on a floor/slab using Revit NewSlabEdge. Uses the top planar face boundary edges. Default: all edges; or set allBoundaryEdges false and pass edge line endpoints (feet) to match one segment. Requires at least one SlabEdgeType in the model (get_slab_edge_types).",
+  {
+    floorId: z.number().describe("Floor element id (category Floors)."),
+    slabEdgeTypeId: z.number().describe("SlabEdgeType element id from get_slab_edge_types."),
+    allBoundaryEdges: z.boolean().optional().describe("Default true: place on each top-face boundary edge."),
+    maxEdges: z.number().optional().describe("Optional cap when allBoundaryEdges is true."),
+    edgeStartX: z.number().optional(),
+    edgeStartY: z.number().optional(),
+    edgeStartZ: z.number().optional(),
+    edgeEndX: z.number().optional(),
+    edgeEndY: z.number().optional(),
+    edgeEndZ: z.number().optional(),
+  },
+  async (a) =>
+    t(
+      await callRevit("/api/place-slab-edges-on-floor", {
+        FloorId: a.floorId,
+        SlabEdgeTypeId: a.slabEdgeTypeId,
+        AllBoundaryEdges: a.allBoundaryEdges ?? null,
+        MaxEdges: a.maxEdges ?? null,
+        EdgeStartX: a.edgeStartX ?? null,
+        EdgeStartY: a.edgeStartY ?? null,
+        EdgeStartZ: a.edgeStartZ ?? null,
+        EdgeEndX: a.edgeEndX ?? null,
+        EdgeEndY: a.edgeEndY ?? null,
+        EdgeEndZ: a.edgeEndZ ?? null,
+      })
+    )
+);
 
 server.tool("create_shaft_opening", "Create a shaft opening between two levels.", {
   baseLevelId: z.number(), topLevelId: z.number(), points: z.array(z.object({ X: z.number(), Y: z.number(), Z: z.number() })).min(3),

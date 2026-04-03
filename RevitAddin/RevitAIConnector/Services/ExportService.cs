@@ -61,6 +61,12 @@ namespace RevitAIConnector.Services
                 ImageResolution = ImageResolution.DPI_300,
                 ExportRange = ExportRange.CurrentView
             };
+            if (!string.IsNullOrEmpty(req.ImageResolution) && Enum.TryParse<ImageResolution>(req.ImageResolution, true, out var dpi))
+                options.ImageResolution = dpi;
+            if (!string.IsNullOrEmpty(req.FitDirection) && Enum.TryParse<FitDirectionType>(req.FitDirection, true, out var fitDir))
+                options.FitDirection = fitDir;
+            if (!string.IsNullOrEmpty(req.ZoomType) && Enum.TryParse<ZoomFitType>(req.ZoomType, true, out var zoomT))
+                options.ZoomType = zoomT;
             if (req.PixelSize.HasValue) options.PixelSize = req.PixelSize.Value;
             if (!string.IsNullOrEmpty(req.Format))
             {
@@ -74,6 +80,19 @@ namespace RevitAIConnector.Services
             {
                 options.ExportRange = ExportRange.SetOfViews;
                 options.SetViewsAndSheets(new List<ElementId> { new ElementId(req.ViewId.Value) });
+            }
+            if (!string.IsNullOrEmpty(req.DisplayStyle))
+            {
+                View v = req.ViewId.HasValue ? doc.GetElement(new ElementId(req.ViewId.Value)) as View : doc.ActiveView;
+                if (v != null && Enum.TryParse<DisplayStyle>(req.DisplayStyle, true, out var ds))
+                {
+                    using (var tx = new Transaction(doc, "AI: Display Style for Image Export"))
+                    {
+                        tx.Start();
+                        v.DisplayStyle = ds;
+                        tx.Commit();
+                    }
+                }
             }
             doc.ExportImage(options);
             return ApiResponse.Ok(new { exported = true, path = options.FilePath });

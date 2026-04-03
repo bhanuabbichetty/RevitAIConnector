@@ -10,6 +10,54 @@ namespace RevitAIConnector.Services
 {
     public static class ViewManagementService
     {
+        /// <summary>Sets per-view workset visibility (V/G Overrides → Worksets). When hideUnlisted is true, user worksets not in visibleWorksetIds become Hidden.</summary>
+        public static void ApplyWorksetVisibilityInternal(Document doc, View view, IList<int> visibleWorksetIds, bool hideUnlisted)
+        {
+            if (visibleWorksetIds == null) return;
+            if (!doc.IsWorkshared) throw new InvalidOperationException("Workset visibility requires a workshared model.");
+            if (hideUnlisted && visibleWorksetIds.Count == 0)
+                throw new InvalidOperationException("VisibleWorksetIds cannot be empty when hiding all unlisted worksets.");
+            var visible = new HashSet<int>(visibleWorksetIds);
+            foreach (Workset ws in new FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset))
+            {
+                try
+                {
+                    if (hideUnlisted)
+                    {
+                        var state = visible.Contains(ws.Id.IntegerValue) ? WorksetVisibility.Visible : WorksetVisibility.Hidden;
+                        view.SetWorksetVisibility(ws.Id, state);
+                    }
+                    else if (visible.Contains(ws.Id.IntegerValue))
+                        view.SetWorksetVisibility(ws.Id, WorksetVisibility.Visible);
+                }
+                catch { /* workset may not apply to this view type */ }
+            }
+        }
+
+        public static ApiResponse SetViewWorksetVisibility(Document doc, string body)
+        {
+            var req = JsonConvert.DeserializeObject<SetViewWorksetVisibilityRequest>(body);
+            if (req == null) return ApiResponse.Fail("Invalid request.");
+            if (req.VisibleWorksetIds == null) return ApiResponse.Fail("VisibleWorksetIds is required.");
+            var view = doc.GetElement(new ElementId(req.ViewId)) as View;
+            if (view == null) return ApiResponse.Fail("View not found.");
+            bool hideUnlisted = req.HideUnlistedWorksets ?? true;
+            try
+            {
+                using (var tx = new Transaction(doc, "AI: View Workset Visibility"))
+                {
+                    tx.Start();
+                    ApplyWorksetVisibilityInternal(doc, view, req.VisibleWorksetIds, hideUnlisted);
+                    tx.Commit();
+                }
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse.Fail(ex.Message);
+            }
+            return ApiResponse.Ok(new { viewId = req.ViewId, visibleWorksetIds = req.VisibleWorksetIds, hideUnlistedWorksets = hideUnlisted });
+        }
+
         public static ApiResponse CreateFloorPlanView(Document doc, string body)
         {
             var req = JsonConvert.DeserializeObject<CreateViewRequest>(body);
@@ -24,6 +72,11 @@ namespace RevitAIConnector.Services
                 tx.Start();
                 var view = ViewPlan.Create(doc, vft.Id, level.Id);
                 if (!string.IsNullOrEmpty(req.ViewName)) view.Name = req.ViewName;
+                if (req.VisibleWorksetIds != null && req.VisibleWorksetIds.Count > 0)
+                {
+                    try { ApplyWorksetVisibilityInternal(doc, view, req.VisibleWorksetIds, true); }
+                    catch (Exception ex) { tx.RollBack(); return ApiResponse.Fail($"Workset visibility: {ex.Message}"); }
+                }
                 tx.Commit();
                 return ApiResponse.Ok(new { viewId = view.Id.IntegerValue, name = view.Name, type = "FloorPlan" });
             }
@@ -43,6 +96,11 @@ namespace RevitAIConnector.Services
                 tx.Start();
                 var view = ViewPlan.Create(doc, vft.Id, level.Id);
                 if (!string.IsNullOrEmpty(req.ViewName)) view.Name = req.ViewName;
+                if (req.VisibleWorksetIds != null && req.VisibleWorksetIds.Count > 0)
+                {
+                    try { ApplyWorksetVisibilityInternal(doc, view, req.VisibleWorksetIds, true); }
+                    catch (Exception ex) { tx.RollBack(); return ApiResponse.Fail($"Workset visibility: {ex.Message}"); }
+                }
                 tx.Commit();
                 return ApiResponse.Ok(new { viewId = view.Id.IntegerValue, name = view.Name, type = "CeilingPlan" });
             }
@@ -75,6 +133,11 @@ namespace RevitAIConnector.Services
                 var view = ViewSection.CreateSection(doc, vft.Id, bb);
                 if (!string.IsNullOrEmpty(req.ViewName))
                     try { view.Name = req.ViewName; } catch { }
+                if (req.VisibleWorksetIds != null && req.VisibleWorksetIds.Count > 0)
+                {
+                    try { ApplyWorksetVisibilityInternal(doc, view, req.VisibleWorksetIds, true); }
+                    catch (Exception ex) { tx.RollBack(); return ApiResponse.Fail($"Workset visibility: {ex.Message}"); }
+                }
                 tx.Commit();
                 return ApiResponse.Ok(new { viewId = view.Id.IntegerValue, name = view.Name });
             }
@@ -104,6 +167,11 @@ namespace RevitAIConnector.Services
                 }
                 if (req != null && !string.IsNullOrEmpty(req.ViewName))
                     try { view.Name = req.ViewName; } catch { }
+                if (req != null && req.VisibleWorksetIds != null && req.VisibleWorksetIds.Count > 0)
+                {
+                    try { ApplyWorksetVisibilityInternal(doc, view, req.VisibleWorksetIds, true); }
+                    catch (Exception ex) { tx.RollBack(); return ApiResponse.Fail($"Workset visibility: {ex.Message}"); }
+                }
                 tx.Commit();
                 return ApiResponse.Ok(new { viewId = view.Id.IntegerValue, name = view.Name, perspective = req?.IsPerspective ?? false });
             }
@@ -121,6 +189,11 @@ namespace RevitAIConnector.Services
                 var view = ViewDrafting.Create(doc, vft.Id);
                 if (req != null && !string.IsNullOrEmpty(req.Name))
                     try { view.Name = req.Name; } catch { }
+                if (req != null && req.VisibleWorksetIds != null && req.VisibleWorksetIds.Count > 0)
+                {
+                    try { ApplyWorksetVisibilityInternal(doc, view, req.VisibleWorksetIds, true); }
+                    catch (Exception ex) { tx.RollBack(); return ApiResponse.Fail($"Workset visibility: {ex.Message}"); }
+                }
                 tx.Commit();
                 return ApiResponse.Ok(new { viewId = view.Id.IntegerValue, name = view.Name });
             }
@@ -145,6 +218,11 @@ namespace RevitAIConnector.Services
                 var newView = doc.GetElement(newId) as View;
                 if (!string.IsNullOrEmpty(req.NewName))
                     try { newView.Name = req.NewName; } catch { }
+                if (req.VisibleWorksetIds != null && req.VisibleWorksetIds.Count > 0)
+                {
+                    try { ApplyWorksetVisibilityInternal(doc, newView, req.VisibleWorksetIds, true); }
+                    catch (Exception ex) { tx.RollBack(); return ApiResponse.Fail($"Workset visibility: {ex.Message}"); }
+                }
                 tx.Commit();
                 return ApiResponse.Ok(new { newViewId = newId.IntegerValue, name = newView?.Name, duplicateOption = opt.ToString() });
             }

@@ -54,7 +54,7 @@ namespace RevitAIConnector
                 CornerRadius = new CornerRadius(12, 12, 0, 0),
                 Padding = new Thickness(24, 18, 24, 18),
                 Background = new LinearGradientBrush(
-                    Color.FromRgb(56, 132, 244),
+                    Color.FromRgb(56, 132, 232),
                     Color.FromRgb(104, 72, 232),
                     45)
             };
@@ -115,13 +115,13 @@ namespace RevitAIConnector
                 body.Children.Add(Separator());
                 body.Children.Add(InfoRow("Port", port.ToString()));
                 body.Children.Add(InfoRow("Endpoint", $"http://localhost:{port}/"));
-                body.Children.Add(InfoRow("MCP Tools", $"{toolCount} tools available"));
-                body.Children.Add(InfoRow("Version", "2.0.0"));
+                body.Children.Add(InfoRow("API routes (MCP tools)", $"{toolCount} registered"));
+                body.Children.Add(InfoRow("Version", App.Version));
 
                 body.Children.Add(Separator());
                 body.Children.Add(new TextBlock
                 {
-                    Text = "Cursor MCP server can now connect.\nThis dialog will auto-close in 8 seconds.",
+                    Text = "Cursor MCP should list the same tool count (reload MCP if the IDE shows fewer).\nThis dialog will auto-close in 8 seconds.",
                     Foreground = new SolidColorBrush(Color.FromRgb(140, 140, 160)),
                     FontSize = 11.5,
                     Margin = new Thickness(0, 4, 0, 0),
@@ -154,7 +154,7 @@ namespace RevitAIConnector
             var okBtn = new Border
             {
                 Background = new LinearGradientBrush(
-                    Color.FromRgb(56, 132, 244),
+                    Color.FromRgb(56, 132, 232),
                     Color.FromRgb(104, 72, 232), 90),
                 CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(20, 6, 20, 6),

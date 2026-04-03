@@ -36,6 +36,11 @@
     <!-- Revit 2025 ships its own Newtonsoft.Json; set Private=false if conflicts arise -->
   </ItemGroup>
 
+  <!-- Keep App.ToolCount / ping mcpToolCount in sync with McpServer/src/index.ts -->
+  <Target Name="SyncMcpToolCount" BeforeTargets="BeforeCompile">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)SyncToolCount.ps1&quot;" WorkingDirectory="$(ProjectDir)" />
+  </Target>
+
   <!-- Copy addin manifest to output -->
   <ItemGroup>
     <None Include="RevitAIConnector.addin">

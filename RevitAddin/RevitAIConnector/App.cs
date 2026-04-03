@@ -12,8 +12,8 @@ namespace RevitAIConnector
 
         public static int Port { get; } = 52010;
         public static string BaseUrl => $"http://localhost:{Port}/";
-        public const int ToolCount = 244;
-        public const string Version = "2.0.0";
+        public static int ToolCount => McpToolCount.Value;
+        public const string Version = "2.0.3";
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -54,7 +54,7 @@ namespace RevitAIConnector
                 TaskDialog.Show("Revit AI Connector",
                     isError
                         ? $"Failed to start: {errorMsg}"
-                        : $"AI Connector started on port {port}.\n{toolCount} MCP tools ready.");
+                        : $"AI Connector started on port {port}.\n{toolCount} API routes (MCP tools) ready.");
             }
         }
     }

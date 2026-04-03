@@ -41,6 +41,13 @@ namespace RevitAIConnector.Models
         public int CategoryId { get; set; }
     }
 
+    /// <summary>Filter instance elements by Revit category and schedule/host level.</summary>
+    public class CategoryAndLevelRequest
+    {
+        public int CategoryId { get; set; }
+        public int LevelId { get; set; }
+    }
+
     public class KeywordRequest
     {
         public string Keyword { get; set; }
@@ -436,6 +443,8 @@ namespace RevitAIConnector.Models
     {
         public int LevelId { get; set; }
         public string ViewName { get; set; }
+        /// <summary>If set (workshared models), per-view workset visibility: listed worksets stay visible; all other user worksets are hidden in the new view.</summary>
+        public List<int> VisibleWorksetIds { get; set; }
     }
 
     public class CreateSectionRequest
@@ -450,6 +459,7 @@ namespace RevitAIConnector.Models
         public double? DirectionY { get; set; }
         public double? DirectionZ { get; set; }
         public string ViewName { get; set; }
+        public List<int> VisibleWorksetIds { get; set; }
     }
 
     public class Create3DViewRequest
@@ -465,11 +475,13 @@ namespace RevitAIConnector.Models
         public double? UpY { get; set; }
         public double? UpZ { get; set; }
         public string ViewName { get; set; }
+        public List<int> VisibleWorksetIds { get; set; }
     }
 
     public class SimpleNameRequest
     {
         public string Name { get; set; }
+        public List<int> VisibleWorksetIds { get; set; }
     }
 
     public class DuplicateViewRequest
@@ -477,6 +489,17 @@ namespace RevitAIConnector.Models
         public int ViewId { get; set; }
         public string Option { get; set; }
         public string NewName { get; set; }
+        public List<int> VisibleWorksetIds { get; set; }
+    }
+
+    /// <summary>Per-view Visibility/Graphics workset visibility (workshared projects).</summary>
+    public class SetViewWorksetVisibilityRequest
+    {
+        public int ViewId { get; set; }
+        /// <summary>Worksets that should be Visible in this view.</summary>
+        public List<int> VisibleWorksetIds { get; set; }
+        /// <summary>Default true: hide every user workset not listed. False: only set listed worksets to Visible and leave others unchanged.</summary>
+        public bool? HideUnlistedWorksets { get; set; }
     }
 
     public class ViewCropBoxRequest
@@ -738,6 +761,14 @@ namespace RevitAIConnector.Models
         public string FileName { get; set; }
         public string Format { get; set; }
         public int? PixelSize { get; set; }
+        /// <summary>DPI_72, DPI_150, DPI_300, DPI_600</summary>
+        public string ImageResolution { get; set; }
+        /// <summary>Horizontal or Vertical</summary>
+        public string FitDirection { get; set; }
+        /// <summary>FitToPage, FitToPageByDirection, or Zoom (use with pixelSize)</summary>
+        public string ZoomType { get; set; }
+        /// <summary>Optional. For graphical views (e.g. 3D), set before export: Wireframe, HLR, Shaded, ConsistentColors, Realistic, Raytrace, etc.</summary>
+        public string DisplayStyle { get; set; }
     }
 
     // ─── Opening Requests ─────────────────────────────────────────────────────
@@ -751,6 +782,27 @@ namespace RevitAIConnector.Models
         public double MaxX { get; set; }
         public double MaxY { get; set; }
         public double MaxZ { get; set; }
+        /// <summary>If set with Center* and OpeningHeight, Min/Max are ignored — rectangle is built in the wall plane from center, width along wall, and vertical height.</summary>
+        public double? OpeningWidth { get; set; }
+        public double? OpeningHeight { get; set; }
+        public double? CenterX { get; set; }
+        public double? CenterY { get; set; }
+        public double? CenterZ { get; set; }
+    }
+
+    /// <summary>
+    /// Place a wall-hosted family instance (e.g. door/window/opening family) using
+    /// Document.Create.NewFamilyInstance(XYZ, FamilySymbol, Wall, ...).
+    /// </summary>
+    public class WallHostedFamilyRequest
+    {
+        public int WallId { get; set; }
+        public int FamilySymbolId { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
+        /// <summary>Optional. If set, uses the 5-arg overload with explicit level (some hosts need it).</summary>
+        public int? LevelId { get; set; }
     }
 
     public class FloorOpeningRequest
@@ -764,6 +816,21 @@ namespace RevitAIConnector.Models
         public int BaseLevelId { get; set; }
         public int TopLevelId { get; set; }
         public List<RebarPoint> Points { get; set; }
+    }
+
+    public class PlaceSlabEdgesRequest
+    {
+        public int FloorId { get; set; }
+        public int SlabEdgeTypeId { get; set; }
+        /// <summary>When null or true, every top-face boundary edge gets a slab edge.</summary>
+        public bool? AllBoundaryEdges { get; set; }
+        public int? MaxEdges { get; set; }
+        public double? EdgeStartX { get; set; }
+        public double? EdgeStartY { get; set; }
+        public double? EdgeStartZ { get; set; }
+        public double? EdgeEndX { get; set; }
+        public double? EdgeEndY { get; set; }
+        public double? EdgeEndZ { get; set; }
     }
 
     // ─── Curtain Wall Requests ────────────────────────────────────────────────

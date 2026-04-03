@@ -24,6 +24,74 @@ namespace RevitAIConnector.Services
             return ApiResponse.Ok(new { count = ids.Count, elementIds = ids });
         }
 
+        public static ApiResponse GetElementsByCategoryAndLevel(Document doc, string body)
+        {
+            var req = JsonConvert.DeserializeObject<CategoryAndLevelRequest>(body);
+            if (req == null) return ApiResponse.Fail("Invalid request body.");
+
+            var catId = new ElementId(req.CategoryId);
+            var levelId = new ElementId(req.LevelId);
+
+            var ids = new FilteredElementCollector(doc)
+                .OfCategoryId(catId)
+                .WhereElementIsNotElementType()
+                .Where(e => ElementMatchesScheduleLevel(e, levelId))
+                .Select(e => e.Id.IntegerValue)
+                .ToList();
+
+            return ApiResponse.Ok(new
+            {
+                categoryId = req.CategoryId,
+                levelId = req.LevelId,
+                count = ids.Count,
+                elementIds = ids
+            });
+        }
+
+        /// <summary>
+        /// Same as GetElementsByCategoryAndLevel but uses the active view's ViewPlan.GenLevel (e.g. FIRST S.S.L. when that plan is open).
+        /// </summary>
+        public static ApiResponse GetElementsByCategoryOnActivePlanLevel(Document doc, string body)
+        {
+            var req = JsonConvert.DeserializeObject<CategoryRequest>(body);
+            if (req == null) return ApiResponse.Fail("Invalid request body.");
+
+            var view = doc.ActiveView as ViewPlan;
+            if (view?.GenLevel == null)
+                return ApiResponse.Fail("Active view is not a floor/ceiling plan with an associated level. Switch to the FF SSL plan or pass levelId to /api/elements-by-category-and-level.");
+
+            return GetElementsByCategoryAndLevel(doc,
+                JsonConvert.SerializeObject(new CategoryAndLevelRequest
+                {
+                    CategoryId = req.CategoryId,
+                    LevelId = view.GenLevel.Id.IntegerValue
+                }));
+        }
+
+        private static bool ElementMatchesScheduleLevel(Element e, ElementId levelId)
+        {
+            if (e is FamilyInstance fi)
+            {
+                var lp = fi.get_Parameter(BuiltInParameter.LEVEL_PARAM);
+                if (lp != null && lp.HasValue && lp.AsElementId() != ElementId.InvalidElementId)
+                    return lp.AsElementId() == levelId;
+            }
+
+            Parameter p = e.get_Parameter(BuiltInParameter.SCHEDULE_LEVEL_PARAM);
+            if (p != null && p.HasValue && p.AsElementId() != ElementId.InvalidElementId)
+                return p.AsElementId() == levelId;
+
+            p = e.get_Parameter(BuiltInParameter.LEVEL_PARAM);
+            if (p != null && p.HasValue && p.AsElementId() != ElementId.InvalidElementId)
+                return p.AsElementId() == levelId;
+
+            p = e.get_Parameter(BuiltInParameter.WALL_BASE_CONSTRAINT);
+            if (p != null && p.HasValue && p.AsElementId() != ElementId.InvalidElementId)
+                return p.AsElementId() == levelId;
+
+            return false;
+        }
+
         public static ApiResponse GetElementTypes(Document doc, string body)
         {
             var req = JsonConvert.DeserializeObject<ElementIdList>(body);

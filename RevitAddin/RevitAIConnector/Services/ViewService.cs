@@ -24,6 +24,44 @@ namespace RevitAIConnector.Services
             });
         }
 
+        /// <summary>
+        /// For the active floor plan (ViewPlan), returns GenLevel — e.g. FIRST S.S.L. when that plan is active — so tools can scope edits to FF SSL instead of GF.
+        /// </summary>
+        public static ApiResponse GetActiveViewAssociatedLevel(Document doc)
+        {
+            var view = doc.ActiveView;
+            if (view == null) return ApiResponse.Fail("No active view.");
+
+            if (view is ViewPlan vp && vp.GenLevel != null)
+            {
+                var lvl = vp.GenLevel;
+                return ApiResponse.Ok(new
+                {
+                    viewId = view.Id.IntegerValue,
+                    viewName = view.Name,
+                    viewType = view.ViewType.ToString(),
+                    scale = view.Scale,
+                    isPlanView = true,
+                    associatedLevelId = lvl.Id.IntegerValue,
+                    associatedLevelName = lvl.Name,
+                    elevationFeet = Math.Round(lvl.Elevation, 6)
+                });
+            }
+
+            return ApiResponse.Ok(new
+            {
+                viewId = view.Id.IntegerValue,
+                viewName = view.Name,
+                viewType = view.ViewType.ToString(),
+                scale = view.Scale,
+                isPlanView = false,
+                associatedLevelId = (int?)null,
+                associatedLevelName = (string)null,
+                elevationFeet = (double?)null,
+                message = "Active view is not a ViewPlan (floor/ceiling plan), or has no associated level. Use get_all_levels and pass levelId explicitly."
+            });
+        }
+
         public static ApiResponse GetProjectInfo(Document doc)
         {
             var pi = doc.ProjectInformation;
